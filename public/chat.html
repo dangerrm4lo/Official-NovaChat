@@ -1,4 +1,3 @@
-cat > /home/claude/novachat/public/chat.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -388,9 +387,3 @@ cat > /home/claude/novachat/public/chat.html << 'HTMLEOF'
 <script src="js/chat.js"></script>
 </body>
 </html>
-HTMLEOF
-python3 -c "
-h = open('/home/claude/novachat/public/chat.html').read()
-print('div open:', h.count('<div'), 'div close:', h.count('</div>'))
-print('button open:', h.count('<button'), 'button close:', h.count('</button>'))
-"

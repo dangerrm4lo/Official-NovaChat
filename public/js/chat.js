@@ -1,4 +1,3 @@
-cat > /home/claude/novachat/public/js/chat.js << 'JSEOF'
 // ==========================================================
 // chat.js — логика страницы чатов
 // ==========================================================
@@ -832,5 +831,3 @@ themeToggle.addEventListener('click', () => {
   await loadProfile();
   await loadHistory();
 })();
-JSEOF
-`node --check /home/claude/novachat/public/js/chat.js && echo "chat.js: синтаксис OK"`
