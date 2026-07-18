@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovaChat — вход</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/auth.css">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+</head>
+<body>
+
+<div class="auth-page">
+  <div class="auth-card">
+
+    <div class="auth-brand">
+      <img src="assets/logo.png" alt="NovaChat logo">
+      <div class="brand-name">NovaChat</div>
+    </div>
+
+    <p class="auth-desc">
+      NovaChat — связь без границ. Будущее общения уже здесь.
+    </p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="register">Регистрация</button>
+      <button class="auth-tab" data-tab="login">Вход</button>
+    </div>
+
+    <!-- форма регистрации -->
+    <form class="auth-form active" id="registerForm">
+      <div class="field">
+        <label for="regUsername">Никнейм</label>
+        <input type="text" id="regUsername" autocomplete="username" placeholder="Например, nova_user" required>
+      </div>
+      <div class="field">
+        <label for="regPassword">Пароль</label>
+        <input type="password" id="regPassword" autocomplete="new-password" placeholder="Минимум 6 символов" required>
+      </div>
+      <div class="auth-error" id="registerError"></div>
+      <button type="submit" class="auth-submit">Создать аккаунт</button>
+    </form>
+
+    <!-- форма входа -->
+    <form class="auth-form" id="loginForm">
+      <div class="field">
+        <label for="loginUsername">Никнейм</label>
+        <input type="text" id="loginUsername" autocomplete="username" placeholder="Ваш никнейм" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">Пароль</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Ваш пароль" required>
+      </div>
+      <div class="auth-error" id="loginError"></div>
+      <button type="submit" class="auth-submit">Войти</button>
+    </form>
+
+    <div class="auth-hint" id="authHint">
+      Уже есть аккаунт? <button type="button" id="hintSwitch">Войти</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  if ('serviceworker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+    .then(() => console.log('[SW] Зарегистрирован'))
+    .catch((err) => console.error('[SW] Ошибка регистрации:', err));
+  }
+  </script>
+<script src="js/auth.js"></script>
+</body>
+</html>

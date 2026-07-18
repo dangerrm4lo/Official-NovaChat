@@ -1,0 +1,78 @@
+/* ==========================================================
+   style.css — общие переменные и сброс стилей для NovaChat
+   ========================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+:root{
+  /* nova-градиент — фирменные цвета бренда */
+  --nova-1: #4F46E5;   /* индиго */
+  --nova-2: #9333EA;   /* фиолетовый */
+  --nova-3: #EC4899;   /* розовый */
+  --nova-gradient: linear-gradient(135deg, var(--nova-1), var(--nova-2) 55%, var(--nova-3));
+
+  /* нейтральные цвета (светлая тема) */
+  --bg: #FFFFFF;
+  --bg-soft: #F7F7FB;
+  --card: #FFFFFF;
+  --border: #E7E7F0;
+  --text: #1A1B25;
+  --text-muted: #6B7280;
+  --shadow: 0 8px 30px rgba(31, 20, 70, 0.08);
+}
+
+*{ box-sizing: border-box; }
+
+html, body{
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body{
+  font-family: 'Inter', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .brand-font{
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+button{
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input{
+  font-family: inherit;
+}
+
+a{
+  color: inherit;
+}
+
+::-webkit-scrollbar{ width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb{ background: var(--border); border-radius: 4px; }
+
+/* маленький тост-уведомление (для "пока не рабочих" кнопок) */
+.toast{
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--text);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+  z-index: 999;
+}
+.toast.show{
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

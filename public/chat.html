@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovaChat</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/chat.css">
+</head>
+<body>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn" id="settingsBtn" title="Настройки">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="topbar-center">
+      <div class="topbar-title-wrap">
+        <div class="topbar-title">NovaChat</div>
+        <div class="topbar-version">V0.01F</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="theme-toggle" id="themeToggle" title="Сменить тему">
+        <span class="knob">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+          </svg>
+        </span>
+      </button>
+      <button class="profile-btn" id="profileBtn" title="Профиль">
+        <span id="profileBtnInitial">?</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="body-row">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="search-wrap">
+          <span class="search-icon">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="M21 21l-4.3-4.3"></path>
+            </svg>
+          </span>
+          <input type="text" id="chatSearch" placeholder="Поиск">
+        </div>
+      </div>
+
+      <div class="chat-list" id="chatList">
+        <div class="chat-item active" data-chat="novaai" data-search="novaai novachat support бот нова помощь">
+          <div class="avatar avatar-bot" id="botAvatarSidebar"><span class="status-dot"></span></div>
+          <div class="chat-item-body">
+            <div class="chat-item-top">
+              <span class="chat-item-name">
+                NovaAI
+                <button class="verified-badge" data-verified-trigger title="Подтверждённый бот">
+                  <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 6L9 17l-5-5"></path>
+                  </svg>
+                </button>
+              </span>
+              <span class="chat-item-time" id="sidebarTime"></span>
+            </div>
+            <div class="chat-item-bottom">
+              <span class="chat-item-preview" id="sidebarPreview">Чем могу помочь?</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-list-empty" id="chatListEmpty">Ничего не найдено</div>
+    </div>
+
+    <div class="chat-window">
+      <div class="conversation-header" id="conversationHeader" title="Открыть профиль">
+        <div class="avatar avatar-bot avatar-sm" id="botAvatarHeader"><span class="status-dot"></span></div>
+        <div class="conversation-header-info">
+          <div class="conversation-header-name">
+            NovaAI
+            <button class="verified-badge" data-verified-trigger title="Подтверждённый бот">
+              <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6L9 17l-5-5"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="messages" id="messages"></div>
+
+      <div class="composer">
+        <input type="text" id="messageInput" placeholder="Напишите сообщение…" maxlength="1000">
+        <button class="send-btn" id="sendBtn">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 2L11 13"></path>
+            <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- всплывающая подсказка про верификацию -->
+<div class="popover" id="verifiedPopover">
+  Это подтверждённый бот NovaChat.
+</div>
+
+<!-- модалка редактирования профиля -->
+<div class="modal-overlay" id="profileModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Редактировать профиль</h3>
+      <button class="modal-close" id="closeProfileModal">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6L6 18M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="avatar-edit">
+        <div class="avatar-large" id="avatarPreview">?</div>
+        <button class="avatar-edit-btn" id="avatarEditBtn" title="Сменить фото">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+        </button>
+        <input type="file" id="avatarInput" accept="image/*" hidden>
+      </div>
+      <button class="avatar-remove-link" id="avatarRemoveBtn">Удалить фото</button>
+
+      <div class="field">
+        <label for="displayNameInput">Имя</label>
+        <input type="text" id="displayNameInput" maxlength="40" placeholder="Ваше имя">
+      </div>
+
+      <div class="field">
+        <label for="handleInput">Юзернейм</label>
+        <div class="handle-input-wrap">
+          <span class="at-prefix">@</span>
+          <input type="text" id="handleInput" maxlength="32" placeholder="username">
+          <span class="handle-spinner" id="handleSpinner"></span>
+        </div>
+        <div class="handle-status" id="handleStatus"></div>
+      </div>
+
+      <div class="field">
+        <label for="bioInput">О себе</label>
+        <textarea id="bioInput" maxlength="200" placeholder="Пара слов о себе"></textarea>
+        <div class="char-counter" id="bioCounter">0 / 200</div>
+      </div>
+
+      <div class="profile-error" id="profileError"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" id="cancelProfileBtn">Отмена</button>
+      <button class="btn-primary" id="saveProfileBtn">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- модалка просмотра профиля (бот или свой) -->
+<div class="modal-overlay" id="viewProfileModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Профиль</h3>
+      <button class="modal-close" id="closeViewProfileModal">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6L6 18M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body view-profile-body">
+      <div class="avatar-large" id="viewProfileAvatar"></div>
+      <div class="view-name" id="viewProfileName"></div>
+      <div class="view-handle" id="viewProfileHandle"></div>
+      <div class="view-bio" id="viewProfileBio"></div>
+
+      <div class="view-tabs" id="viewProfileTabs">
+        <button class="view-tab" data-tab-name="Публикации">Публикации</button>
+        <button class="view-tab" data-tab-name="Подарки">Подарки</button>
+      </div>
+    </div>
+
+    <div class="modal-footer view-profile-footer" id="viewProfileFooter">
+      <button class="btn-primary" id="editProfileFromView">Редактировать профиль</button>
+      <button class="btn-logout" id="logoutFromView">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <path d="M16 17l5-5-5-5"></path>
+          <path d="M21 12H9"></path>
+        </svg>
+        Выйти из аккаунта
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/chat.js"></script>
+</body>
+</html>
