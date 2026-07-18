@@ -1,3 +1,4 @@
+cat > /home/claude/novachat/server.js << 'SERVEREOF'
 // ==========================================================
 // server.js — backend NovaChat
 // Express + JWT-авторизация + хранение данных в JSON-файлах
@@ -6,6 +7,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -18,8 +20,21 @@ const JWT_SECRET = process.env.JWT_SECRET || 'novachat_dev_secret_change_me';
 const USERS_FILE = path.join(__dirname, 'users.json');
 const CHATS_FILE = path.join(__dirname, 'chats.json');
 
-// юзернеймы, которые нельзя занять обычному пользователю (зарезервированы за ботом/системой)
-const RESERVED_HANDLES = ['novachat', 'novaai', 'admin', 'support', 'system'];
+// юзернеймы, которые нельзя занять обычному пользователю (зарезервированы за ботом/каналом/системой)
+const RESERVED_HANDLES = ['novachat', 'novaai', 'nc_official', 'admin', 'support', 'system'];
+
+// ---------- создатели/администраторы сайта ----------
+// Пока это просто список логинов/юзернеймов, которым присваивается
+// статус "создатель" (галочка верификации + отдельный текст в подсказке).
+// Если нужно больше одного уровня прав (модераторы и т.д.) — дай знать,
+// вынесем в отдельный файл admins.json с ролями.
+const CREATOR_LOGINS = ['admin1', 'dangerrm4lo'];
+
+function isCreator(user){
+  const u = (user.username || '').toLowerCase();
+  const h = (user.handle || '').toLowerCase();
+  return CREATOR_LOGINS.includes(u) || CREATOR_LOGINS.includes(h);
+}
 
 // увеличенный лимит — нужен, чтобы прошла base64-картинка аватарки
 app.use(express.json({ limit: '2mb' }));
@@ -42,7 +57,6 @@ function saveJSON(file, data){
 }
 
 // ---------- заполняем новые поля профиля значениями по умолчанию ----------
-// (нужно, чтобы пользователи, зарегистрированные до этого обновления, не ломали код)
 function normalizeUser(user){
   return {
     username: user.username,
@@ -55,11 +69,14 @@ function normalizeUser(user){
 }
 
 function publicProfile(user){
+  const verified = isCreator(user);
   return {
     displayName: user.displayName,
     handle: user.handle,
     bio: user.bio,
-    avatar: user.avatar
+    avatar: user.avatar,
+    verified,
+    verifiedLabel: verified ? 'Это создатель NovaChat - знакомьтесь!' : null
   };
 }
 
@@ -200,7 +217,6 @@ app.put('/api/profile', authMiddleware, (req, res) => {
 
   const user = normalizeUser(users[index]);
 
-  // ---- имя ----
   const trimmedName = (displayName || '').trim();
   if(!trimmedName){
     return res.status(400).json({ error: 'Введите имя' });
@@ -210,12 +226,11 @@ app.put('/api/profile', authMiddleware, (req, res) => {
   }
   user.displayName = trimmedName;
 
-  // ---- юзернейм (необязателен) ----
   const trimmedHandle = (handle || '').trim().toLowerCase();
   if(trimmedHandle){
     if(!isValidHandle(trimmedHandle)){
       return res.status(400).json({ error: 'Юзернейм: только буквы, цифры и _, от 5 до 32 символов' });
-    }
+      }
     if(RESERVED_HANDLES.includes(trimmedHandle)){
       return res.status(400).json({ error: 'Этот юзернейм зарезервирован' });
     }
@@ -228,14 +243,12 @@ app.put('/api/profile', authMiddleware, (req, res) => {
     user.handle = null;
   }
 
-  // ---- био ----
   const trimmedBio = (bio || '').trim();
   if(trimmedBio.length > 200){
     return res.status(400).json({ error: 'Био слишком длинное (макс. 200 символов)' });
   }
   user.bio = trimmedBio;
 
-  // ---- аватар (base64 data URL или null для удаления) ----
   if(avatar !== undefined){
     user.avatar = avatar || null;
   }
@@ -247,6 +260,70 @@ app.put('/api/profile', authMiddleware, (req, res) => {
 });
 
 // ==========================================================
+// ПОИСК — пользователи, бот, канал
+// ==========================================================
+const BOT_SEARCH_ENTRY = {
+  type: 'bot',
+  displayName: 'NovaAI',
+  handle: 'NovaChat',
+  bio: 'Официальный бот поддержки NovaChat.',
+  verified: true,
+  verifiedLabel: 'Это подтверждённый бот NovaChat.',
+  avatar: null,
+  avatarImage: 'logo'
+};
+
+const CHANNEL_SEARCH_ENTRY = {
+  type: 'channel',
+  displayName: 'NC Official',
+  handle: 'NC_Official',
+  bio: 'Официальный канал новостей NovaChat.',
+  verified: true,
+  verifiedLabel: 'Это официальный канал NovaChat.',
+  avatar: null,
+  avatarImage: null
+};
+
+app.get('/api/search', authMiddleware, (req, res) => {
+  const q = (req.query.q || '').trim().toLowerCase().replace(/^@/, '');
+  if(!q){
+    return res.json({ results: [] });
+  }
+
+  const results = [];
+
+  if(BOT_SEARCH_ENTRY.handle.toLowerCase().includes(q) || BOT_SEARCH_ENTRY.displayName.toLowerCase().includes(q)){
+    results.push(BOT_SEARCH_ENTRY);
+  }
+  if(CHANNEL_SEARCH_ENTRY.handle.toLowerCase().includes(q) || CHANNEL_SEARCH_ENTRY.displayName.toLowerCase().includes(q)){
+    results.push(CHANNEL_SEARCH_ENTRY);
+  }
+
+  const users = loadJSON(USERS_FILE, []);
+  users.forEach(raw => {
+    if(raw.username === req.username) return;
+    const u = normalizeUser(raw);
+    const matchesHandle = u.handle && u.handle.toLowerCase().includes(q);
+    const matchesName = u.displayName && u.displayName.toLowerCase().includes(q);
+    if(matchesHandle || matchesName){
+      const verified = isCreator(u);
+      results.push({
+        type: 'user',
+        displayName: u.displayName,
+        handle: u.handle,
+        bio: u.bio,
+        avatar: u.avatar,
+        avatarImage: null,
+        verified,
+        verifiedLabel: verified ? 'Это создатель NovaChat - знакомьтесь!' : null
+      });
+    }
+  });
+
+  res.json({ results: results.slice(0, 30) });
+});
+
+// ==========================================================
 // ИСТОРИЯ ЧАТА
 // ==========================================================
 app.get('/api/chat/history', authMiddleware, (req, res) => {
@@ -254,9 +331,17 @@ app.get('/api/chat/history', authMiddleware, (req, res) => {
 
   if(!chats[req.username]){
     chats[req.username] = [
-      { sender: 'bot', text: 'Привет! Я NovaAI, ваш помощник поддержки. Чем могу помочь?', ts: Date.now() }
+      { id: crypto.randomUUID(), sender: 'bot', text: 'Привет! Я NovaAI, ваш помощник поддержки. Чем могу помочь?', ts: Date.now() },
+      { id: crypto.randomUUID(), sender: 'bot', text: 'Следите за новостями на нашем официальном канале @NC_Official', ts: Date.now() + 1 }
     ];
     saveJSON(CHATS_FILE, chats);
+  } else {
+    // миграция: у старых сообщений может не быть id — добавляем на лету
+    let changed = false;
+    chats[req.username].forEach(m => {
+      if(!m.id){ m.id = crypto.randomUUID(); changed = true; }
+    });
+    if(changed) saveJSON(CHATS_FILE, chats);
   }
 
   res.json({ messages: chats[req.username] });
@@ -274,13 +359,58 @@ app.post('/api/chat', authMiddleware, (req, res) => {
   const chats = loadJSON(CHATS_FILE, {});
   if(!chats[req.username]) chats[req.username] = [];
 
-  chats[req.username].push({ sender: 'user', text: text.trim(), ts: Date.now() });
+  const userMsg = { id: crypto.randomUUID(), sender: 'user', text: text.trim(), ts: Date.now() };
+  chats[req.username].push(userMsg);
 
-  const reply = getNovaAIReply(text.trim());
-  chats[req.username].push({ sender: 'bot', text: reply, ts: Date.now() });
+  const replyText = getNovaAIReply(text.trim());
+  const botMsg = { id: crypto.randomUUID(), sender: 'bot', text: replyText, ts: Date.now() };
+  chats[req.username].push(botMsg);
 
   saveJSON(CHATS_FILE, chats);
-  res.json({ reply });
+  res.json({ userMessageId: userMsg.id, reply: botMsg.text, replyId: botMsg.id, replyTs: botMsg.ts });
+});
+
+// ==========================================================
+// РЕДАКТИРОВАНИЕ своего сообщения
+// ==========================================================
+app.put('/api/chat/message/:id', authMiddleware, (req, res) => {
+  const { text } = req.body || {};
+  if(!text || !text.trim()){
+    return res.status(400).json({ error: 'Сообщение не может быть пустым' });
+  }
+
+  const chats = loadJSON(CHATS_FILE, {});
+  const list = chats[req.username] || [];
+  const msg = list.find(m => m.id === req.params.id);
+
+  if(!msg || msg.sender !== 'user'){
+    return res.status(404).json({ error: 'Сообщение не найдено' });
+  }
+
+  msg.text = text.trim();
+  msg.edited = true;
+  saveJSON(CHATS_FILE, chats);
+
+  res.json({ message: msg });
+});
+
+// ==========================================================
+// УДАЛЕНИЕ своего сообщения
+// ==========================================================
+app.delete('/api/chat/message/:id', authMiddleware, (req, res) => {
+  const chats = loadJSON(CHATS_FILE, {});
+  const list = chats[req.username] || [];
+  const index = list.findIndex(m => m.id === req.params.id);
+
+  if(index === -1 || list[index].sender !== 'user'){
+    return res.status(404).json({ error: 'Сообщение не найдено' });
+  }
+
+  list.splice(index, 1);
+  chats[req.username] = list;
+  saveJSON(CHATS_FILE, chats);
+
+  res.json({ success: true });
 });
 
 // ==========================================================
@@ -316,123 +446,8 @@ function getNovaAIReply(message){
   return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
 
-// ==========================================================
-// ПОИСК ПОЛЬЗОВАТЕЛЕЙ, КАНАЛОВ И БОТОВ
-// ==========================================================
-app.get('/api/search', authMiddleware, (req, res) => {
-  const q = (req.query.q || '').trim().toLowerCase().replace(/^@/, '');
-  if (!q) return res.json({ users: [], channels: [], bots: [] });
-
-  const users = loadJSON(USERS_FILE, []);
-  
-  // Ищем пользователей
-  const matchedUsers = users
-    .filter(u => u.username !== req.username)
-    .filter(u => 
-      u.username.toLowerCase().includes(q) ||
-      (u.displayName || '').toLowerCase().includes(q) 
-      (u.handle || '').toLowerCase().includes(q)
-    )
-    .map(u => ({
-      username: u.username,
-      displayName: u.displayName || u.username,
-      handle: u.handle || null,
-      avatar: u.avatar || null,
-      type: 'user'
-    }))
-    .slice(0, 10);
-
-  // Ищем каналы (из chats.json, где isChannel = true)
-  const chats = loadJSON(CHATS_FILE, {});
-  const matchedChannels = Object.keys(chats)
-    .filter(key => key.startsWith('channel_'))
-    .map(key => ({ id: key, ...chats[key] }))
-    .filter(ch => (ch.name || '').toLowerCase().includes(q)  (ch.handle || '').toLowerCase().includes(q))
-    .map(ch => ({
-      id: ch.id,
-      name: ch.name || ch.id,
-      handle: ch.handle || null,
-      type: 'channel'
-    }))
-    .slice(0, 10);
-
-  // Боты (захардкоженные или из специального файла)
-  const bots = [
-    { name: 'NovaAI', handle: 'novachat', description: 'Официальный бот поддержки', type: 'bot' }
-  ].filter(b => 
-    b.name.toLowerCase().includes(q) || 
-    b.handle.toLowerCase().includes(q) ||
-    (b.description || '').toLowerCase().includes(q)
-  );
-
-  res.json({ users: matchedUsers, channels: matchedChannels, bots });
-});
-
-// ==========================================================
-// УДАЛЕНИЕ СООБЩЕНИЯ
-// ==========================================================
-app.delete('/api/messages/:index', authMiddleware, (req, res) => {
-  const index = parseInt(req.params.index);
-  if (isNaN(index) || index < 0) {
-    return res.status(400).json({ error: 'Неверный индекс сообщения' });
-  }
-
-  const chats = loadJSON(CHATS_FILE, {});
-  if (!chats[req.username]) {
-    return res.status(404).json({ error: 'Чат не найден' });
-  }
-
-  if (index >= chats[req.username].length) {
-    return res.status(404).json({ error: 'Сообщение не найдено' });
-  }
-
-  // Проверяем, что сообщение принадлежит пользователю (нельзя удалить чужое)
-  if (chats[req.username][index].sender !== 'user') {
-    return res.status(403).json({ error: 'Нельзя удалить чужое сообщение' });
-  }
-
-  // Помечаем как удалённое (soft delete) или удаляем полностью
-  // Для анимации "танос" лучше просто удалить
-  chats[req.username].splice(index, 1);
-  saveJSON(CHATS_FILE, chats);
-
-  res.json({ success: true });
-});
-
-// ==========================================================
-// РЕДАКТИРОВАНИЕ СООБЩЕНИЯ
-// ==========================================================
-app.put('/api/messages/:index', authMiddleware, (req, res) => {
-  const index = parseInt(req.params.index);
-  const { text } = req.body;
-
-  if (isNaN(index) || index < 0) {
-    return res.status(400).json({ error: 'Неверный индекс сообщения' });
-  }
-  if (!text || !text.trim()) {
-    return res.status(400).json({ error: 'Текст не может быть пустым' });
-  }
-
-  const chats = loadJSON(CHATS_FILE, {});
-  if (!chats[req.username]) {
-    return res.status(404).json({ error: 'Чат не найден' });
-  }
-
-  if (index >= chats[req.username].length) {
-    return res.status(404).json({ error: 'Сообщение не найдено' });
-  }
-
-  if (chats[req.username][index].sender !== 'user') {
-    return res.status(403).json({ error: 'Нельзя редактировать чужое сообщение' });
-  }
-
-  chats[req.username][index].text = text.trim();
-  chats[req.username][index].edited = true;
-  saveJSON(CHATS_FILE, chats);
-
-  res.json({ success: true, message: chats[req.username][index] });
-});
-
 app.listen(PORT, () => {
   console.log(`NovaChat запущен: http://localhost:${PORT}`);
 });
+SERVEREOF
+`node --check /home/claude/novachat/server.js && echo "server.js: синтаксис OK"`
