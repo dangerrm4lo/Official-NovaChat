@@ -1,4 +1,3 @@
-cat > /home/claude/novachat/server.js << 'SERVEREOF'
 // ==========================================================
 // server.js — backend NovaChat
 // Express + JWT-авторизация + хранение данных в JSON-файлах
@@ -449,5 +448,3 @@ function getNovaAIReply(message){
 app.listen(PORT, () => {
   console.log(`NovaChat запущен: http://localhost:${PORT}`);
 });
-SERVEREOF
-`node --check /home/claude/novachat/server.js && echo "server.js: синтаксис OK"`
