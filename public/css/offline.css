@@ -1,0 +1,365 @@
+/* ==========================================================
+   offline.css — страница "Сервис временно недоступен"
+   ========================================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f5f5f7;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.offline-container {
+  max-width: 420px;
+  width: 100%;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+/* ===== КРАСНАЯ ПОЛОСА ===== */
+.offline-alert {
+  background: #ff3b30;
+  padding: 12px 16px;
+  text-align: center;
+  position: relative;
+}
+
+.offline-alert::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+
+.offline-alert .alert-icon {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+.offline-alert .alert-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: white;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.offline-alert .alert-text {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+
+/* ===== ОСНОВНОЙ КОНТЕНТ ===== */
+.offline-body {
+  padding: 40px 24px 32px;
+  text-align: center;
+}
+
+/* ===== ЗАЧЕРКНУТЫЙ ГЛОБУС ===== */
+.globe-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+.globe-icon {
+  width: 72px;
+  height: 72px;
+  display: block;
+  margin: 0 auto;
+}
+
+.globe-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: #6e6e78;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.globe-strikethrough {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 4px;
+  background: #ff3b30;
+  border-radius: 2px;
+  rotate: -15deg;
+  box-shadow: 0 0 12px rgba(255, 59, 48, 0.3);
+}
+
+.globe-strikethrough::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  background: #ff3b30;
+  border-radius: 50%;
+}
+
+.globe-strikethrough::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  background: #ff3b30;
+  border-radius: 50%;
+}
+
+/* ===== ТЕКСТЫ ===== */
+.offline-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1e;
+  margin-bottom: 4px;
+}
+
+.offline-subtitle {
+  font-size: 15px;
+  color: #6e6e78;
+  margin-bottom: 24px;
+}
+
+/* ===== СПИСОК РЕКОМЕНДАЦИЙ ===== */
+.offline-tips {
+  text-align: left;
+  background: #f5f5f7;
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.offline-tips .tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 14px;
+  color: #4a4a50;
+  line-height: 1.5;
+}
+
+.offline-tips .tip:not(:last-child) {
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+
+.offline-tips .tip .num {
+  font-weight: 700;
+  color: #007aff;
+  font-size: 13px;
+  min-width: 24px;
+  flex-shrink: 0;
+}
+
+.offline-tips .tip .text {
+  flex: 1;
+}
+
+/* ===== СООБЩЕНИЕ АДМИНИСТРАТОРА ===== */
+.admin-message {
+  background: linear-gradient(135deg, rgba(0, 122, 255, 0.06), rgba(88, 86, 214, 0.06));
+  border: 1px solid rgba(0, 122, 255, 0.12);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.admin-message .admin-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #007aff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.admin-message .admin-label .badge {
+  background: #007aff;
+  color: white;
+  font-size: 9px;
+  padding: 1px 8px;
+  border-radius: 12px;
+}
+
+.admin-message .admin-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1a1a1e;
+}
+
+.admin-message .admin-time {
+  font-size: 12px;
+  color: #8e8e98;
+  margin-top: 4px;
+}
+
+/* ===== АНИМАЦИЯ ЗАГРУЗКИ (БЕСКОНЕЧНАЯ) ===== */
+.offline-loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+
+.offline-loader .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #007aff;
+  animation: loaderPulse 1.4s infinite ease-in-out;
+}
+
+.offline-loader .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.offline-loader .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+.offline-loader .dot:nth-child(4) {
+  animation-delay: 0.6s;
+}
+.offline-loader .dot:nth-child(5) {
+  animation-delay: 0.8s;
+}
+
+@keyframes loaderPulse {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.offline-loader .loader-label {
+  font-size: 12px;
+  color: #8e8e98;
+  margin-left: 8px;
+}
+
+/* ===== КНОПКА ПЕРЕЗАГРУЗКИ ===== */
+.offline-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 28px;
+  background: #007aff;
+  color: white;
+  border: none;
+  border-radius: 30px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.25);
+}
+
+.offline-retry-btn:hover {
+  background: #0066d9;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 122, 255, 0.3);
+}
+
+.offline-retry-btn:active {
+  transform: scale(0.96);
+}
+
+.offline-retry-btn .btn-icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ===== ВЕРСИЯ ===== */
+.offline-version {
+  font-size: 10px;
+  color: #b0b0b8;
+  text-align: center;
+  padding: 12px 0 4px;
+  letter-spacing: 0.3px;
+}
+
+/* ===== ТЁМНАЯ ТЕМА ===== */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #0a0a0a;
+  }
+  .offline-container {
+    background: #1c1c1e;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+  }
+  .offline-title {
+    color: #ffffff;
+  }
+  .offline-subtitle {
+    color: #8e8e93;
+  }
+  .offline-tips {
+    background: #2c2c2e;
+  }
+  .offline-tips .tip {
+    color: #aeaeb2;
+  }
+  .offline-tips .tip .num {
+    color: #0a84ff;
+  }
+  .admin-message {
+    background: linear-gradient(135deg, rgba(10, 132, 255, 0.1), rgba(88, 86, 214, 0.1));
+    border-color: rgba(10, 132, 255, 0.15);
+  }
+  .admin-message .admin-text {
+    color: #ffffff;
+  }
+  .admin-message .admin-label {
+    color: #0a84ff;
+  }
+  .admin-message .admin-label .badge {
+    background: #0a84ff;
+  }
+  .offline-alert .alert-text {
+    color: #ffffff;
+  }
+}

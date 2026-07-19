@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Сервис временно недоступен — NovaChat</title>
+  <link rel="stylesheet" href="css/offline.css">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+</head>
+<body>
+
+<div class="offline-container">
+
+  <!-- ===== КРАСНАЯ ПОЛОСА ===== -->
+  <div class="offline-alert">
+    <span class="alert-icon">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </span>
+    <span class="alert-text">Извините! Сервис временно не доступен! Попробуйте позже.</span>
+  </div>
+
+  <!-- ===== ОСНОВНОЙ БЛОК ===== -->
+  <div class="offline-body">
+
+    <!-- Глобус с зачёркиванием -->
+    <div class="globe-wrapper">
+      <div class="globe-icon">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M2 12h20"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+      </div>
+      <div class="globe-strikethrough"></div>
+    </div>
+
+    <div class="offline-title">Ошибка подключения.</div>
+    <div class="offline-subtitle">Мы не можем установить соединение с сервером</div>
+
+    <!-- Сообщение администратора -->
+    <div class="admin-message">
+      <div class="admin-label">
+        <span>Администратор</span>
+        <span class="badge">онлайн</span>
+      </div>
+      <div class="admin-text" id="adminMessage">
+        Провожу технические работы. Обновление будет опубликовано в ближайшее время.
+      </div>
+      <div class="admin-time" id="adminTime">
+        Последнее обновление: только что
+      </div>
+    </div>
+
+    <!-- Советы -->
+    <div class="offline-tips">
+      <div class="tip">
+        <span class="num">1</span>
+        <span class="text">Проверьте подключение к интернету.</span>
+      </div>
+      <div class="tip">
+        <span class="num">2</span>
+        <span class="text">Подождите минимум от 30 мин. до 1 часа и попробуйте зайти позже.</span>
+      </div>
+      <div class="tip">
+        <span class="num">3</span>
+        <span class="text">Перезагрузите сайт, если соединение с интернетом хорошее.</span>
+      </div>
+    </div>
+
+    <!-- Кнопка перезагрузки -->
+    <button class="offline-retry-btn" onclick="location.reload()">
+      <svg class="btn-icon" viewBox="0 0 24 24">
+        <path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9"/>
+      </svg>
+      Перезагрузить
+    </button>
+
+    <!-- Анимация загрузки -->
+    <div class="offline-loader">
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="loader-label">Ожидание соединения...</span>
+    </div>
+
+    <div class="offline-version">NovaChat v0.01F · Офлайн-режим</div>
+  </div>
+</div>
+
+<script src="js/offline.js"></script>
+</body>
+</html>
