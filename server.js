@@ -9,8 +9,11 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const { WebSocketServer } = require('ws');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 // ⚠️ в реальном проекте вынесите секрет в переменную окружения (.env)
@@ -19,6 +22,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'novachat_dev_secret_change_me';
 const USERS_FILE = path.join(__dirname, 'users.json');
 const CHATS_FILE = path.join(__dirname, 'chats.json');
 const CHANNELS_FILE = path.join(__dirname, 'channels.json');
+const CONVERSATIONS_FILE = path.join(__dirname, 'conversations.json');
 
 // юзернеймы, которые нельзя занять обычному пользователю (зарезервированы за ботом/каналом/системой)
 const RESERVED_HANDLES = ['novachat', 'novaai', 'nc_official', 'admin', 'support', 'system'];
@@ -230,7 +234,7 @@ app.put('/api/profile', authMiddleware, (req, res) => {
   if(trimmedHandle){
     if(!isValidHandle(trimmedHandle)){
       return res.status(400).json({ error: 'Юзернейм: только буквы, цифры и _, от 5 до 32 символов' });
-      }
+    }
     if(RESERVED_HANDLES.includes(trimmedHandle)){
       return res.status(400).json({ error: 'Этот юзернейм зарезервирован' });
     }
@@ -502,6 +506,329 @@ function getNovaAIReply(message){
   return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
 
-app.listen(PORT, () => {
+// ==========================================================
+// РЕАЛЬНАЯ ПЕРЕПИСКА МЕЖДУ ПОЛЬЗОВАТЕЛЯМИ
+// Адресация — по публичному юзернейму (@handle), а не по логину:
+// логин никому, кроме владельца, не показывается. Значит, чтобы
+// пользователю можно было написать, у него должен быть задан юзернейм.
+// ==========================================================
+
+function findUserByHandle(handle){
+  if(!handle) return null;
+  const users = loadJSON(USERS_FILE, []);
+  return users.find(u => (u.handle || '').toLowerCase() === handle.toLowerCase()) || null;
+}
+
+function conversationKey(userA, userB){
+  return [userA, userB].sort().join('__');
+}
+
+function loadConversations(){
+  return loadJSON(CONVERSATIONS_FILE, {});
+}
+function saveConversations(data){
+  saveJSON(CONVERSATIONS_FILE, data);
+}
+
+function publicPeer(user){
+  const normalized = normalizeUser(user);
+  const verified = isCreator(normalized);
+  return {
+    handle: normalized.handle,
+    displayName: normalized.displayName,
+    avatar: normalized.avatar,
+    verified,
+    verifiedLabel: verified ? 'Это создатель NovaChat - знакомьтесь!' : null
+  };
+}
+
+// ---------- список диалогов (для сайдбара) ----------
+app.get('/api/conversations', authMiddleware, (req, res) => {
+  const conversations = loadConversations();
+  const users = loadJSON(USERS_FILE, []);
+  const me = req.username;
+
+  const list = [];
+  Object.keys(conversations).forEach(key => {
+    const parts = key.split('__');
+    if(!parts.includes(me)) return;
+    const peerUsername = parts[0] === me ? parts[1] : parts[0];
+    const peerUser = users.find(u => u.username === peerUsername);
+    if(!peerUser) return;
+
+    const messages = conversations[key];
+    if(!messages.length) return;
+    const last = messages[messages.length - 1];
+    const unreadCount = messages.filter(m => m.sender === peerUsername && m.status !== 'read').length;
+
+    list.push({
+      ...publicPeer(peerUser),
+      lastMessage: last.text,
+      lastTs: last.ts,
+      lastFromMe: last.sender === me,
+      lastStatus: last.status,
+      unreadCount
+    });
+  });
+
+  list.sort((a, b) => b.lastTs - a.lastTs);
+  res.json({ conversations: list });
+});
+
+// ---------- начать диалог с пользователем по его юзернейму ----------
+app.post('/api/conversations/start', authMiddleware, (req, res) => {
+  const { handle } = req.body || {};
+  const targetUser = findUserByHandle(handle);
+  if(!targetUser){
+    return res.status(404).json({ error: 'Пользователь не найден' });
+  }
+  if(targetUser.username === req.username){
+    return res.status(400).json({ error: 'Нельзя написать самому себе' });
+  }
+
+  const key = conversationKey(req.username, targetUser.username);
+  const conversations = loadConversations();
+  if(!conversations[key]){
+    conversations[key] = [];
+    saveConversations(conversations);
+  }
+
+  res.json(publicPeer(targetUser));
+});
+
+// ---------- история переписки с конкретным человеком ----------
+app.get('/api/conversations/:handle/history', authMiddleware, (req, res) => {
+  const targetUser = findUserByHandle(req.params.handle);
+  if(!targetUser){
+    return res.status(404).json({ error: 'Пользователь не найден' });
+  }
+  const key = conversationKey(req.username, targetUser.username);
+  const conversations = loadConversations();
+  const messages = conversations[key] || [];
+
+  res.json({
+    peer: publicPeer(targetUser),
+    messages: messages.map(m => ({
+      id: m.id,
+      sender: m.sender === req.username ? 'me' : 'them',
+      text: m.text,
+      ts: m.ts,
+      status: m.status,
+      edited: !!m.edited
+    }))
+  });
+});
+
+// ---------- отметить входящие сообщения от этого человека как прочитанные ----------
+app.post('/api/conversations/:handle/read', authMiddleware, (req, res) => {
+  const targetUser = findUserByHandle(req.params.handle);
+  if(!targetUser){
+    return res.status(404).json({ error: 'Пользователь не найден' });
+  }
+  const key = conversationKey(req.username, targetUser.username);
+  const conversations = loadConversations();
+  const messages = conversations[key] || [];
+
+  let changed = false;
+  messages.forEach(m => {
+    if(m.sender === targetUser.username && m.status !== 'read'){
+      m.status = 'read';
+      changed = true;
+    }
+  });
+  if(changed){
+    saveConversations(conversations);
+    notifyUser(targetUser.username, { type: 'read', peer: req.username });
+  }
+  res.json({ success: true });
+});
+
+// ---------- редактирование своего сообщения в переписке ----------
+app.put('/api/conversations/:handle/message/:id', authMiddleware, (req, res) => {
+  const { text } = req.body || {};
+  if(!text || !text.trim()){
+    return res.status(400).json({ error: 'Сообщение не может быть пустым' });
+  }
+  const targetUser = findUserByHandle(req.params.handle);
+  if(!targetUser){
+    return res.status(404).json({ error: 'Пользователь не найден' });
+  }
+  const key = conversationKey(req.username, targetUser.username);
+  const conversations = loadConversations();
+  const messages = conversations[key] || [];
+  const msg = messages.find(m => m.id === req.params.id);
+
+  if(!msg || msg.sender !== req.username){
+    return res.status(404).json({ error: 'Сообщение не найдено' });
+  }
+  msg.text = text.trim();
+  msg.edited = true;
+  saveConversations(conversations);
+
+  notifyUser(targetUser.username, { type: 'edit', id: msg.id, text: msg.text, peer: req.username });
+
+  res.json({ message: { id: msg.id, sender: 'me', text: msg.text, ts: msg.ts, status: msg.status, edited: true } });
+});
+
+// ---------- удаление своего сообщения в переписке ----------
+app.delete('/api/conversations/:handle/message/:id', authMiddleware, (req, res) => {
+  const targetUser = findUserByHandle(req.params.handle);
+  if(!targetUser){
+    return res.status(404).json({ error: 'Пользователь не найден' });
+  }
+  const key = conversationKey(req.username, targetUser.username);
+  const conversations = loadConversations();
+  const messages = conversations[key] || [];
+  const index = messages.findIndex(m => m.id === req.params.id);
+
+  if(index === -1 || messages[index].sender !== req.username){
+    return res.status(404).json({ error: 'Сообщение не найдено' });
+  }
+  messages.splice(index, 1);
+  saveConversations(conversations);
+
+  notifyUser(targetUser.username, { type: 'delete', id: req.params.id, peer: req.username });
+
+  res.json({ success: true });
+});
+
+// ==========================================================
+// WEBSOCKET — доставка сообщений и статусов в реальном времени
+// ==========================================================
+const onlineClients = new Map(); // username -> Set<ws>
+
+function registerClient(username, ws){
+  if(!onlineClients.has(username)) onlineClients.set(username, new Set());
+  onlineClients.get(username).add(ws);
+}
+function unregisterClient(username, ws){
+  const set = onlineClients.get(username);
+  if(!set) return;
+  set.delete(ws);
+  if(set.size === 0) onlineClients.delete(username);
+}
+function notifyUser(username, payload){
+  const set = onlineClients.get(username);
+  if(!set) return;
+  const json = JSON.stringify(payload);
+  set.forEach(client => {
+    if(client.readyState === client.OPEN) client.send(json);
+  });
+}
+
+// при подключении — все ранее отправленные (но ещё не доставленные) сообщения
+// для этого пользователя считаются доставленными, отправителям летит уведомление
+function markPendingAsDelivered(username){
+  const conversations = loadConversations();
+  let changed = false;
+
+  Object.keys(conversations).forEach(key => {
+    if(!key.split('__').includes(username)) return;
+    conversations[key].forEach(m => {
+      if(m.sender !== username && m.status === 'sent'){
+        m.status = 'delivered';
+        changed = true;
+        notifyUser(m.sender, { type: 'status', id: m.id, status: 'delivered' });
+      }
+    });
+  });
+
+  if(changed) saveConversations(conversations);
+}
+
+function handleIncomingMessage(fromUsername, data, ws){
+  const targetUser = findUserByHandle(data.to);
+  if(!targetUser){
+    ws.send(JSON.stringify({ type: 'error', tempId: data.tempId, error: 'Пользователь не найден' }));
+    return;
+  }
+  const text = (data.text || '').trim();
+  if(!text) return;
+
+  const key = conversationKey(fromUsername, targetUser.username);
+  const conversations = loadConversations();
+  if(!conversations[key]) conversations[key] = [];
+
+  const delivered = onlineClients.has(targetUser.username);
+  const msg = {
+    id: crypto.randomUUID(),
+    sender: fromUsername,
+    text,
+    ts: Date.now(),
+    status: delivered ? 'delivered' : 'sent'
+  };
+  conversations[key].push(msg);
+  saveConversations(conversations);
+
+  // подтверждение отправителю (заменяет временное сообщение на настоящее, с id и статусом)
+  ws.send(JSON.stringify({
+    type: 'ack',
+    tempId: data.tempId,
+    message: { id: msg.id, sender: 'me', text: msg.text, ts: msg.ts, status: msg.status }
+  }));
+
+  const users = loadJSON(USERS_FILE, []);
+  const senderUser = users.find(u => u.username === fromUsername);
+
+  notifyUser(targetUser.username, {
+    type: 'message',
+    message: { id: msg.id, sender: 'them', text: msg.text, ts: msg.ts, status: msg.status },
+    senderInfo: senderUser ? publicPeer(senderUser) : null
+  });
+}
+
+function handleReadReceipt(username, data){
+  const targetUser = findUserByHandle(data.peer);
+  if(!targetUser) return;
+
+  const key = conversationKey(username, targetUser.username);
+  const conversations = loadConversations();
+  const messages = conversations[key] || [];
+
+  let changed = false;
+  messages.forEach(m => {
+    if(m.sender === targetUser.username && m.status !== 'read'){
+      m.status = 'read';
+      changed = true;
+    }
+  });
+  if(changed){
+    saveConversations(conversations);
+    notifyUser(targetUser.username, { type: 'read', peer: username });
+  }
+}
+
+const wss = new WebSocketServer({ server, path: '/ws' });
+
+wss.on('connection', (ws, req) => {
+  let username = null;
+  try{
+    const url = new URL(req.url, 'http://localhost');
+    const token = url.searchParams.get('token');
+    const payload = jwt.verify(token, JWT_SECRET);
+    username = payload.username;
+  }catch(e){
+    ws.close(4001, 'unauthorized');
+    return;
+  }
+
+  registerClient(username, ws);
+  markPendingAsDelivered(username);
+
+  ws.on('message', (raw) => {
+    let data;
+    try{ data = JSON.parse(raw); }catch(e){ return; }
+
+    if(data.type === 'message'){
+      handleIncomingMessage(username, data, ws);
+    } else if(data.type === 'read'){
+      handleReadReceipt(username, data);
+    }
+  });
+
+  ws.on('close', () => unregisterClient(username, ws));
+});
+
+server.listen(PORT, () => {
   console.log(`NovaChat запущен: http://localhost:${PORT}`);
 });

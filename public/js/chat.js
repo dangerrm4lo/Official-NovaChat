@@ -450,6 +450,7 @@ function sendMessageToUser(handle, text){
     showToast('Нет соединения с сервером. Переподключаемся…');
   }
 }
+
 function sendReadReceipt(handle){
   if(ws && ws.readyState === WebSocket.OPEN){
     ws.send(JSON.stringify({ type: 'read', peer: handle }));
@@ -483,7 +484,7 @@ let contextTargetRow = null;
 
 messagesEl.addEventListener('contextmenu', (e) => {
   const row = e.target.closest('.msg-row.me');
-  if(`!row  !row.dataset.msgId row.dataset.msgId.startsWith('temp-')`) return;
+  if(!row || !row.dataset.msgId || row.dataset.msgId.startsWith('temp-')) return;
   e.preventDefault();
   contextTargetRow = row;
   const x = Math.min(e.clientX, window.innerWidth - 190);
@@ -636,11 +637,11 @@ let wsReconnectTimer = null;
 
 function connectWebSocket(){
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${protocol}`//${window.location.host}/ws?token=${encodeURIComponent(token)});
+  ws = new WebSocket(`${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`);
 
   `ws`.onopen = () => {
     clearTimeout(wsReconnectTimer);
-  })
+  };
 
   `ws`.onmessage = (event) => {
     let data;
