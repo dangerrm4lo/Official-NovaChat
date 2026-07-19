@@ -1,6 +1,6 @@
 {
   "name": "novachat",
-  "version": "1.0.0",
+  "version": "0.02A",
   "description": "NovaChat — связь без границ. Будущее общения уже здесь.",
   "main": "server.js",
   "scripts": {

@@ -18,6 +18,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'novachat_dev_secret_change_me';
 
 const USERS_FILE = path.join(__dirname, 'users.json');
 const CHATS_FILE = path.join(__dirname, 'chats.json');
+const CHANNELS_FILE = path.join(__dirname, 'channels.json');
 
 // юзернеймы, которые нельзя занять обычному пользователю (зарезервированы за ботом/каналом/системой)
 const RESERVED_HANDLES = ['novachat', 'novaai', 'nc_official', 'admin', 'support', 'system'];
@@ -320,6 +321,62 @@ app.get('/api/search', authMiddleware, (req, res) => {
   });
 
   res.json({ results: results.slice(0, 30) });
+});
+
+// ==========================================================
+// КАНАЛ — подписка / отписка / данные о канале
+// Пока сайт поддерживает один канал (@NC_Official). Если понадобится
+// несколько каналов — здесь нужно будет добавить их список и создание.
+// ==========================================================
+function getChannelsData(){
+  return loadJSON(CHANNELS_FILE, {});
+}
+
+function ensureChannel(channels, handle){
+  if(!channels[handle]){
+    channels[handle] = { subscribers: [] };
+  }
+  return channels[handle];
+}
+
+app.get('/api/channel/:handle', authMiddleware, (req, res) => {
+  const handle = req.params.handle;
+  if(handle.toLowerCase() !== CHANNEL_SEARCH_ENTRY.handle.toLowerCase()){
+    return res.status(404).json({ error: 'Канал не найден' });
+  }
+  const channels = getChannelsData();
+  const channel = ensureChannel(channels, handle);
+  res.json({
+    ...CHANNEL_SEARCH_ENTRY,
+    subscriberCount: channel.subscribers.length,
+    isSubscribed: channel.subscribers.includes(req.username)
+  });
+});
+
+app.post('/api/channel/:handle/subscribe', authMiddleware, (req, res) => {
+  const handle = req.params.handle;
+  if(handle.toLowerCase() !== CHANNEL_SEARCH_ENTRY.handle.toLowerCase()){
+    return res.status(404).json({ error: 'Канал не найден' });
+  }
+  const channels = getChannelsData();
+  const channel = ensureChannel(channels, handle);
+  if(!channel.subscribers.includes(req.username)){
+    channel.subscribers.push(req.username);
+    saveJSON(CHANNELS_FILE, channels);
+  }
+  res.json({ subscriberCount: channel.subscribers.length, isSubscribed: true });
+});
+
+app.post('/api/channel/:handle/unsubscribe', authMiddleware, (req, res) => {
+  const handle = req.params.handle;
+  if(handle.toLowerCase() !== CHANNEL_SEARCH_ENTRY.handle.toLowerCase()){
+    return res.status(404).json({ error: 'Канал не найден' });
+  }
+  const channels = getChannelsData();
+  const channel = ensureChannel(channels, handle);
+  channel.subscribers = channel.subscribers.filter(u => u !== req.username);
+  saveJSON(CHANNELS_FILE, channels);
+  res.json({ subscriberCount: channel.subscribers.length, isSubscribed: false });
 });
 
 // ==========================================================
