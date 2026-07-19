@@ -10,11 +10,19 @@ if(!token){
 const messagesEl = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
-const sidebarPreview = document.getElementById('sidebarPreview');
 const toastEl = document.getElementById('toast');
+const chatListEl = document.getElementById('chatList');
+const appEl = document.querySelector('.app');
+
+const CHECK_SVG = '<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>';
+const TICK_SINGLE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>';
+const TICK_DOUBLE = '<svg viewBox="0 0 24 24" width="18" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L7 17l-5-5"></path><path d="M23 6L12 17l-1-1"></path></svg>';
 
 let currentProfile = { displayName: '', handle: null, bio: '', avatar: null, verified: false, verifiedLabel: null };
 let avatarValue = null; // значение аватарки, редактируемое в модалке (до сохранения)
+let activeChat = { type: 'bot' }; // { type:'bot' } | { type:'user', handle, displayName, avatar, verified, verifiedLabel }
+let conversationsCache = [];
+let currentViewedHandle = null; // юзернейм последнего открытого чужого профиля (для кнопки "Написать")
 
 function showToast(text){
   toastEl.textContent = text;
@@ -25,11 +33,6 @@ function showToast(text){
 function formatTime(ts){
   const d = new Date(ts);
   return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
-}
-
-function updateSidebarTime(ts){
-  const el = document.getElementById('sidebarTime');
-  if(el) el.textContent = formatTime(ts);
 }
 
 async function apiFetch(url, options = {}){
@@ -75,51 +78,260 @@ function bindVerifiedBadge(btn){
     }
   });
 }
-document.querySelectorAll('[data-verified-trigger]').forEach(bindVerifiedBadge);
 document.addEventListener('click', (e) => {
   if(!popoverEl.contains(e.target)) hidePopover();
 });
 
 // ==========================================================
-// СООБЩЕНИЯ (с аватаркой сбоку + редактирование/удаление своих)
+// МОБИЛЬНАЯ РАСКЛАДКА: список на весь экран <-> открытый чат на весь экран
 // ==========================================================
-function avatarForMessage(sender){
-  const el = document.createElement('div');
-  el.className = 'avatar msg-avatar';
-  if(sender === 'user'){
-    if(currentProfile.avatar){
-      el.style.backgroundImage = `url(${currentProfile.avatar})`;
-    } else {
-      el.textContent = (currentProfile.displayName || '?').trim().charAt(0).toUpperCase();
-    }
+function openChatOnMobile(){
+  appEl.classList.add('mobile-chat-open');
+}
+function backToListOnMobile(){
+  appEl.classList.remove('mobile-chat-open');
+}
+document.getElementById('mobileBackBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  backToListOnMobile();
+});
+
+// ==========================================================
+// ШАПКА ДИАЛОГА — переключается между ботом и реальным собеседником
+// ==========================================================
+function updateConversationHeader(chat){
+  const avatarEl = document.getElementById('chatHeaderAvatar');
+  const nameEl = document.getElementById('chatHeaderName');
+  nameEl.innerHTML = '';
+  avatarEl.style.backgroundImage = 'none';
+  avatarEl.textContent = '';
+
+  if(chat.type === 'bot'){
+    avatarEl.className = 'avatar avatar-sm avatar-bot';
+    nameEl.appendChild(document.createTextNode('NovaAI'));
+    appendVerifiedBadge(nameEl, 'Это подтверждённый бот NovaChat.');
   } else {
-    el.classList.add('avatar-bot');
+    avatarEl.className = 'avatar avatar-sm';
+    if(chat.avatar){
+      avatarEl.style.backgroundImage = `url(${chat.avatar})`;
+    } else {
+      avatarEl.textContent = (chat.displayName || '?').trim().charAt(0).toUpperCase();
+    }
+    nameEl.appendChild(document.createTextNode(chat.displayName || ''));
+    if(chat.verified){
+      appendVerifiedBadge(nameEl, chat.verifiedLabel || 'Подтверждённый аккаунт.');
+    }
   }
-  return el;
 }
 
-function renderMessage(msg){
-  const row = document.createElement('div');
-  row.className = 'msg-row ' + (msg.sender === 'user' ? 'user' : 'bot');
-  row.dataset.msgId = msg.id || '';
+function appendVerifiedBadge(container, text){
+  const badge = document.createElement('button');
+  badge.className = 'verified-badge';
+  badge.setAttribute('data-verified-trigger', '');
+  badge.title = 'Подтверждённый аккаунт';
+  badge.dataset.verifiedText = text;
+  badge.innerHTML = CHECK_SVG;
+  container.appendChild(badge);
+  bindVerifiedBadge(badge);
+}
 
-  const avatar = avatarForMessage(msg.sender);
+document.getElementById('conversationHeader').addEventListener('click', () => {
+  if(activeChat.type === 'bot'){
+    openViewProfile(BOT_PROFILE);
+  } else {
+    openViewProfile({ kind: 'user', ...activeChat });
+  }
+});
+
+// ==========================================================
+// СПИСОК ЧАТОВ (бот + реальные переписки)
+// ==========================================================
+function buildBotChatItem(){
+  const item = document.createElement('div');
+  item.className = 'chat-item';
+  item.dataset.chatKey = 'bot';
+  item.dataset.search = 'novaai novachat support бот нова помощь';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar avatar-bot';
+  avatar.innerHTML = '<span class="status-dot"></span>';
+
+  const body = document.createElement('div');
+  body.className = 'chat-item-body';
+
+  const top = document.createElement('div');
+  top.className = 'chat-item-top';
+  const nameEl = document.createElement('span');
+  nameEl.className = 'chat-item-name';
+  nameEl.appendChild(document.createTextNode('NovaAI'));
+  appendVerifiedBadge(nameEl, 'Это подтверждённый бот NovaChat.');
+  top.appendChild(nameEl);
+  const timeEl = document.createElement('span');
+  timeEl.className = 'chat-item-time';
+  timeEl.id = 'sidebarTime';
+  top.appendChild(timeEl);
+
+  const bottom = document.createElement('div');
+  bottom.className = 'chat-item-bottom';
+  const preview = document.createElement('span');
+  preview.className = 'chat-item-preview';
+  preview.id = 'sidebarPreview';
+  preview.textContent = 'Чем могу помочь?';
+  bottom.appendChild(preview);
+
+  body.appendChild(top);
+  body.appendChild(bottom);
+  item.appendChild(avatar);
+  item.appendChild(body);
+
+  item.addEventListener('click', () => switchToChat({ type: 'bot' }));
+  return item;
+}
+
+function buildConversationItem(conv){
+  const item = document.createElement('div');
+  item.className = 'chat-item';
+  item.dataset.chatKey = 'user:' + conv.handle;
+  item.dataset.search = (conv.handle + ' ' + conv.displayName).toLowerCase();
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  if(conv.avatar){
+    avatar.style.backgroundImage = `url(${conv.avatar})`;
+  } else {
+    avatar.textContent = (conv.displayName || '?').trim().charAt(0).toUpperCase();
+  }
+
+  const body = document.createElement('div');
+  body.className = 'chat-item-body';
+
+  const top = document.createElement('div');
+  top.className = 'chat-item-top';
+  const nameEl = document.createElement('span');
+  nameEl.className = 'chat-item-name';
+  nameEl.appendChild(document.createTextNode(conv.displayName || ''));
+  if(conv.verified){
+    appendVerifiedBadge(nameEl, conv.verifiedLabel || 'Подтверждённый аккаунт.');
+  }
+  top.appendChild(nameEl);
+  const timeEl = document.createElement('span');
+  timeEl.className = 'chat-item-time';
+  timeEl.textContent = formatTime(conv.lastTs);
+  top.appendChild(timeEl);
+
+  const bottom = document.createElement('div');
+  bottom.className = 'chat-item-bottom';
+  const preview = document.createElement('span');
+  preview.className = 'chat-item-preview';
+  preview.textContent = (conv.lastFromMe ? 'Вы: ' : '') + conv.lastMessage;
+  bottom.appendChild(preview);
+  if(conv.unreadCount > 0){
+    const unread = document.createElement('span');
+    unread.className = 'unread-badge';
+    unread.textContent = conv.unreadCount;
+    bottom.appendChild(unread);
+  }
+
+  body.appendChild(top);
+  body.appendChild(bottom);
+  item.appendChild(avatar);
+  item.appendChild(body);
+
+  item.addEventListener('click', () => switchToChat({
+    type: 'user',
+    handle: conv.handle,
+    displayName: conv.displayName,
+    avatar: conv.avatar,
+    verified: conv.verified,
+    verifiedLabel: conv.verifiedLabel
+  }));
+
+  return item;
+}
+
+function renderChatList(){
+  chatListEl.innerHTML = '';
+  chatListEl.appendChild(buildBotChatItem());
+  conversationsCache.forEach(conv => chatListEl.appendChild(buildConversationItem(conv)));
+  updateActiveHighlight();
+}
+
+function updateActiveHighlight(){
+  const key = activeChat.type === 'bot' ? 'bot' : 'user:' + activeChat.handle;
+  document.querySelectorAll('#chatList > .chat-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.chatKey === key);
+  });
+}
+
+async function refreshConversations(){
+  try{
+    const res = await apiFetch('/api/conversations');
+    const data = await res.json();
+    conversationsCache = data.conversations;
+    renderChatList();
+  }catch(e){ /* тихо игнорируем — обновим при следующей возможности */ }
+}
+
+// ==========================================================
+// ПЕРЕКЛЮЧЕНИЕ АКТИВНОГО ЧАТА
+// ==========================================================
+async function switchToChat(chat){
+  activeChat = chat;
+  updateActiveHighlight();
+  updateConversationHeader(chat);
+  messagesEl.innerHTML = '';
+  openChatOnMobile();
+
+  if(chat.type === 'bot'){
+    await loadHistory();
+  } else {
+    await loadConversationHistory(chat.handle);
+    sendReadReceipt(chat.handle);
+  }
+}
+
+// ==========================================================
+// СООБЩЕНИЯ — общий рендер (и для бота, и для реальной переписки)
+// ==========================================================
+function renderMessage(m){
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + (m.who === 'me' ? 'me' : 'other');
+  row.dataset.msgId = m.id || '';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar msg-avatar';
+  if(m.who === 'me'){
+    if(currentProfile.avatar){
+      avatar.style.backgroundImage = `url(${currentProfile.avatar})`;
+    } else {
+      avatar.textContent = (currentProfile.displayName || '?').trim().charAt(0).toUpperCase();
+    }
+  } else if(activeChat.type === 'bot'){
+    avatar.classList.add('avatar-bot');
+  } else if(activeChat.avatar){
+    avatar.style.backgroundImage = `url(${activeChat.avatar})`;
+  } else {
+    avatar.textContent = (activeChat.displayName || '?').trim().charAt(0).toUpperCase();
+  }
 
   const content = document.createElement('div');
   content.className = 'msg-content';
 
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.textContent = msg.text;
+  bubble.textContent = m.text;
 
-  const time = document.createElement('div');
-  time.className = 'msg-time';
-  time.textContent = formatTime(msg.ts) + (msg.edited ? ' · изменено' : '');
+  const timeRow = document.createElement('div');
+  timeRow.className = 'msg-time';
+  timeRow.textContent = formatTime(m.ts) + (m.edited ? ' · изменено' : '');
+  if(m.who === 'me' && m.status){
+    timeRow.appendChild(buildTicks(m.status));
+  }
 
   content.appendChild(bubble);
-  content.appendChild(time);
+  content.appendChild(timeRow);
 
-  if(msg.sender === 'user'){
+  if(m.who === 'me'){
     row.appendChild(content);
     row.appendChild(avatar);
   } else {
@@ -130,6 +342,25 @@ function renderMessage(msg){
   messagesEl.appendChild(row);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return row;
+}
+
+function buildTicks(status){
+  const span = document.createElement('span');
+  span.className = 'msg-ticks' + (status === 'read' ? ' read' : '');
+  span.innerHTML = status === 'sent' ? TICK_SINGLE : TICK_DOUBLE;
+  return span;
+}
+
+function updateTicks(row, status){
+  const timeEl = row.querySelector('.msg-time');
+  if(!timeEl) return;
+  let ticksEl = timeEl.querySelector('.msg-ticks');
+  if(!ticksEl){
+    ticksEl = document.createElement('span');
+    timeEl.appendChild(ticksEl);
+  }
+  ticksEl.className = 'msg-ticks' + (status === 'read' ? ' read' : '');
+  ticksEl.innerHTML = status === 'sent' ? TICK_SINGLE : TICK_DOUBLE;
 }
 
 function showTyping(){
@@ -145,28 +376,33 @@ function hideTyping(){
   if(el) el.remove();
 }
 
+// ==========================================================
+// ЧАТ С БОТОМ (как и раньше — обычные HTTP-запросы)
+// ==========================================================
 async function loadHistory(){
   try{
     const res = await apiFetch('/api/chat/history');
     const data = await res.json();
-    data.messages.forEach(renderMessage);
-    if(data.messages.length){
-      const last = data.messages[data.messages.length - 1];
-      sidebarPreview.textContent = last.text;
-      updateSidebarTime(last.ts);
-    }
+    data.messages.forEach(m => renderMessage({
+      id: m.id, who: m.sender === 'user' ? 'me' : 'other', text: m.text, ts: m.ts, edited: m.edited
+    }));
+    updateBotSidebarPreview(data.messages);
   }catch(e){
     console.error('Не удалось загрузить историю', e);
   }
 }
 
-async function sendMessage(){
-  const text = messageInput.value.trim();
-  if(!text) return;
+function updateBotSidebarPreview(messages){
+  if(!messages.length) return;
+  const last = messages[messages.length - 1];
+  const preview = document.getElementById('sidebarPreview');
+  const time = document.getElementById('sidebarTime');
+  if(preview) preview.textContent = last.text;
+  if(time) time.textContent = formatTime(last.ts);
+}
 
-  messageInput.value = '';
+async function sendMessageToBot(text){
   showTyping();
-
   try{
     const res = await apiFetch('/api/chat', {
       method: 'POST',
@@ -176,14 +412,63 @@ async function sendMessage(){
     const data = await res.json();
     hideTyping();
 
-    renderMessage({ id: data.userMessageId, sender: 'user', text, ts: Date.now() });
-    renderMessage({ id: data.replyId, sender: 'bot', text: data.reply, ts: data.replyTs || Date.now() });
+    renderMessage({ id: data.userMessageId, who: 'me', text, ts: Date.now() });
+    renderMessage({ id: data.replyId, who: 'other', text: data.reply, ts: data.replyTs || Date.now() });
 
-    sidebarPreview.textContent = data.reply;
-    updateSidebarTime(data.replyTs || Date.now());
+    const preview = document.getElementById('sidebarPreview');
+    const time = document.getElementById('sidebarTime');
+    if(preview) preview.textContent = data.reply;
+    if(time) time.textContent = formatTime(data.replyTs || Date.now());
   }catch(e){
     hideTyping();
-    renderMessage({ sender: 'bot', text: 'NovaAI сейчас недоступен. Попробуйте позже.', ts: Date.now() });
+    renderMessage({ who: 'other', text: 'NovaAI сейчас недоступен. Попробуйте позже.', ts: Date.now() });
+  }
+}
+
+// ==========================================================
+// РЕАЛЬНАЯ ПЕРЕПИСКА С ЧЕЛОВЕКОМ
+// ==========================================================
+async function loadConversationHistory(handle){
+  try{
+    const res = await apiFetch('/api/conversations/' + encodeURIComponent(handle) + '/history');
+    const data = await res.json();
+    data.messages.forEach(m => renderMessage({
+      id: m.id, who: m.sender === 'me' ? 'me' : 'other', text: m.text, ts: m.ts, status: m.status, edited: m.edited
+    }));
+  }catch(e){
+    console.error('Не удалось загрузить переписку', e);
+  }
+}
+
+function sendMessageToUser(handle, text){
+  const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  renderMessage({ id: tempId, who: 'me', text, ts: Date.now(), status: 'sent' });
+
+  if(ws && ws.readyState === WebSocket.OPEN){
+    ws.send(JSON.stringify({ type: 'message', to: handle, text, tempId }));
+  } else {
+    showToast('Нет соединения с сервером. Переподключаемся…');
+  }
+}
+function sendReadReceipt(handle){
+  if(ws && ws.readyState === WebSocket.OPEN){
+    ws.send(JSON.stringify({ type: 'read', peer: handle }));
+  }
+  apiFetch('/api/conversations/' + encodeURIComponent(handle) + '/read', { method: 'POST' }).catch(() => {});
+}
+
+// ==========================================================
+// ОТПРАВКА СООБЩЕНИЯ (общий вход для композера)
+// ==========================================================
+function sendMessage(){
+  const text = messageInput.value.trim();
+  if(!text) return;
+  messageInput.value = '';
+
+  if(activeChat.type === 'bot'){
+    sendMessageToBot(text);
+  } else {
+    sendMessageToUser(activeChat.handle, text);
   }
 }
 
@@ -197,8 +482,8 @@ const msgContextMenu = document.getElementById('msgContextMenu');
 let contextTargetRow = null;
 
 messagesEl.addEventListener('contextmenu', (e) => {
-  const row = e.target.closest('.msg-row.user');
-  if(!row || !row.dataset.msgId) return;
+  const row = e.target.closest('.msg-row.me');
+  if(`!row  !row.dataset.msgId row.dataset.msgId.startsWith('temp-')`) return;
   e.preventDefault();
   contextTargetRow = row;
   const x = Math.min(e.clientX, window.innerWidth - 190);
@@ -208,6 +493,12 @@ messagesEl.addEventListener('contextmenu', (e) => {
   msgContextMenu.classList.add('show');
 });
 document.addEventListener('click', () => msgContextMenu.classList.remove('show'));
+
+function messageEndpoint(id){
+  return activeChat.type === 'bot'
+    ? '/api/chat/message/' + encodeURIComponent(id)
+    : '/api/conversations/' + encodeURIComponent(activeChat.handle) + '/message/' + encodeURIComponent(id);
+}
 
 msgContextMenu.querySelector('[data-action="edit"]').addEventListener('click', () => {
   if(contextTargetRow) startEditMessage(contextTargetRow);
@@ -242,16 +533,20 @@ function startEditMessage(row){
       return;
     }
     try{
-      const res = await apiFetch('/api/chat/message/' + encodeURIComponent(id), {
+      const res = await apiFetch(messageEndpoint(id), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: newText })
-        });
+      });
       const data = await res.json();
       if(res.ok){
         bubble.textContent = data.message.text;
         const timeEl = row.querySelector('.msg-time');
-        if(timeEl) timeEl.textContent = formatTime(data.message.ts) + ' · изменено';
+        if(timeEl){
+          const ticks = timeEl.querySelector('.msg-ticks');
+          timeEl.textContent = formatTime(data.message.ts) + ' · изменено';
+          if(ticks) timeEl.appendChild(ticks);
+        }
       }
     }catch(err){ /* оставляем как есть, если сервер недоступен */ }
     input.replaceWith(bubble);
@@ -267,7 +562,7 @@ function startEditMessage(row){
 async function deleteMessage(row){
   const id = row.dataset.msgId;
   try{
-    await apiFetch('/api/chat/message/' + encodeURIComponent(id), { method: 'DELETE' });
+    await apiFetch(messageEndpoint(id), { method: 'DELETE' });
   }catch(err){ /* даже если запрос не прошёл — анимация всё равно уберёт сообщение визуально */ }
   shatterRow(row);
 }
@@ -334,6 +629,75 @@ function shatterRow(row){
 }
 
 // ==========================================================
+// WEBSOCKET — доставка и статусы в реальном времени
+// ==========================================================
+let ws = null;
+let wsReconnectTimer = null;
+
+function connectWebSocket(){
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${protocol}`//${window.location.host}/ws?token=${encodeURIComponent(token)});
+
+  `ws`.onopen = () => {
+    clearTimeout(wsReconnectTimer);
+  })
+
+  `ws`.onmessage = (event) => {
+    let data;
+    try{ data = JSON.parse(event.data); }catch(e){ return; }
+
+    if(data.type === 'ack'){
+      const row = messagesEl.querySelector([`data-msg-id="${CSS.escape(data.tempId)}"`]);
+      if(row){
+        row.dataset.msgId = data.message.id;
+        updateTicks(row, data.message.status);
+      }
+      refreshConversations();
+
+    } else if(data.type === 'message'){
+      const fromHandle = data.senderInfo ? data.senderInfo.handle : null;
+      if(activeChat.type === 'user' && fromHandle && activeChat.handle === fromHandle){
+        renderMessage({ id: data.message.id, who: 'other', text: data.message.text, ts: data.message.ts });
+        sendReadReceipt(fromHandle);
+      } else {
+        showToast((data.senderInfo ? data.senderInfo.displayName : 'Кто-то') + ': новое сообщение');
+      }
+      refreshConversations();
+
+    } else if(data.type === 'status'){
+      const row = messagesEl.querySelector([`data-msg-id="${CSS.escape(data.id)}"`]);
+      if(row) updateTicks(row, data.status);
+
+    } else if(data.type === 'read'){
+      if(activeChat.type === 'user' && activeChat.handle === data.peer){
+        messagesEl.querySelectorAll('.msg-row.me').forEach(row => updateTicks(row, 'read'));
+      }
+
+    } else if(data.type === 'edit'){
+      if(activeChat.type === 'user' && activeChat.handle === data.peer){
+        const row = messagesEl.querySelector([`data-msg-id="${CSS.escape(data.id)}"`]);
+        if(row){
+          const bubble = row.querySelector('.bubble');
+          if(bubble) bubble.textContent = data.text;
+        }
+      }
+      refreshConversations();
+      } else if(data.type === 'delete'){
+      if(activeChat.type === 'user' && activeChat.handle === data.peer){
+        const row = messagesEl.querySelector([`data-msg-id="${CSS.escape(data.id)}"`]);
+        if(row) shatterRow(row);
+      }
+      refreshConversations();
+    }
+  };
+
+  ws.onclose = () => {
+    wsReconnectTimer = setTimeout(connectWebSocket, 2000);
+  };
+  ws.onerror = () => { ws.close(); };
+}
+
+// ==========================================================
 // ПОИСК: локальные чаты + реальный бэкенд-поиск (пользователи/бот/канал)
 // ==========================================================
 const chatSearchInput = document.getElementById('chatSearch');
@@ -365,16 +729,8 @@ function createSearchResultRow(item){
   const nameEl = document.createElement('span');
   nameEl.className = 'chat-item-name';
   nameEl.appendChild(document.createTextNode(item.displayName || ''));
-
   if(item.verified){
-    const badge = document.createElement('button');
-    badge.className = 'verified-badge';
-    badge.setAttribute('data-verified-trigger', '');
-    badge.title = 'Подтверждённый аккаунт';
-    badge.dataset.verifiedText = item.verifiedLabel || 'Подтверждённый аккаунт.';
-    badge.innerHTML = '<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>';
-    nameEl.appendChild(badge);
-    bindVerifiedBadge(badge);
+    appendVerifiedBadge(nameEl, item.verifiedLabel || 'Подтверждённый аккаунт.');
   }
   top.appendChild(nameEl);
 
@@ -394,7 +750,7 @@ function createSearchResultRow(item){
   row.addEventListener('click', (e) => {
     if(e.target.closest('[data-verified-trigger]')) return;
     openViewProfile({
-      isSelf: false,
+      kind: item.type,
       verified: item.verified,
       verifiedLabel: item.verifiedLabel,
       displayName: item.displayName,
@@ -469,7 +825,7 @@ function applyAvatarPreview(url, fallbackName){
     el.textContent = '';
   } else {
     el.style.backgroundImage = 'none';
-    el.textContent = (fallbackName || currentProfile.displayName ||  '?').trim().charAt(0).toUpperCase();
+    el.textContent = (fallbackName || currentProfile.displayName || '?').trim().charAt(0).toUpperCase();
   }
 }
 
@@ -659,7 +1015,7 @@ document.getElementById('saveProfileBtn').addEventListener('click', async () => 
 // ПРОСМОТР ПРОФИЛЯ (свой / бот / канал / другой пользователь)
 // ==========================================================
 const BOT_PROFILE = {
-  isSelf: false,
+  kind: 'bot',
   verified: true,
   verifiedLabel: 'Это подтверждённый бот NovaChat.',
   displayName: 'NovaAI',
@@ -676,10 +1032,58 @@ const viewProfileHandle = document.getElementById('viewProfileHandle');
 const viewProfileBio = document.getElementById('viewProfileBio');
 const viewProfileTabs = document.getElementById('viewProfileTabs');
 const viewProfileFooter = document.getElementById('viewProfileFooter');
+const viewChannelBlock = document.getElementById('viewChannelBlock');
+const viewChannelCount = document.getElementById('viewChannelCount');
+const channelSubscribeBtn = document.getElementById('channelSubscribeBtn');
+const viewMessageBlock = document.getElementById('viewMessageBlock');
+let currentChannelHandle = null;
+
+function pluralizeSubscribers(n){
+  const mod10 = n % 10, mod100 = n % 100;
+  if(mod100 >= 11 && mod100 <= 14) return 'подписчиков';
+  if(mod10 === 1) return 'подписчик';
+  if(mod10 >= 2 && mod10 <= 4) return 'подписчика';
+  return 'подписчиков';
+}
+
+function renderChannelSubscription(count, subscribed){
+  viewChannelCount.textContent = count + ' ' + pluralizeSubscribers(count);
+  channelSubscribeBtn.textContent = subscribed ? 'Отписаться' : 'Подписаться';
+  channelSubscribeBtn.classList.toggle('btn-secondary', subscribed);
+  channelSubscribeBtn.classList.toggle('btn-primary', !subscribed);
+}
+
+async function loadChannelSubscription(handle){
+  currentChannelHandle = handle;
+  viewChannelCount.textContent = 'Загрузка…';
+  channelSubscribeBtn.disabled = true;
+  try{
+    const res = await apiFetch('/api/channel/' + encodeURIComponent(handle));
+    const data = await res.json();
+    renderChannelSubscription(data.subscriberCount, data.isSubscribed);
+  }catch(e){
+    viewChannelCount.textContent = '';
+  }
+  channelSubscribeBtn.disabled = false;
+}
+
+channelSubscribeBtn.addEventListener('click', async () => {
+  if(!currentChannelHandle) return;
+  const subscribed = channelSubscribeBtn.textContent.trim() === 'Отписаться';
+  channelSubscribeBtn.disabled = true;
+  try{
+    const action = subscribed ? 'unsubscribe' : 'subscribe';
+    const res = await apiFetch(`/api/channel/${encodeURIComponent(currentChannelHandle)}/${action}, { method: 'POST' }`);
+    const data = await res.json();
+    renderChannelSubscription(data.subscriberCount, data.isSubscribed);
+  }catch(e){ /* сервер недоступен — оставляем как было */ }
+  channelSubscribeBtn.disabled = false;
+});
 
 function openViewProfile(profile){
-  viewProfileAvatar.classList.toggle('avatar-bot', profile.avatarImage === 'logo');
+  const kind = profile.kind;
 
+  viewProfileAvatar.classList.toggle('avatar-bot', profile.avatarImage === 'logo');
   if(profile.avatarImage === 'logo'){
     viewProfileAvatar.style.backgroundImage = '';
     viewProfileAvatar.textContent = '';
@@ -694,20 +1098,19 @@ function openViewProfile(profile){
   viewProfileName.innerHTML = '';
   viewProfileName.appendChild(document.createTextNode(profile.displayName || ''));
   if(profile.verified){
-    const badge = document.createElement('button');
-    badge.className = 'verified-badge';
-    badge.setAttribute('data-verified-trigger', '');
-    badge.title = 'Подтверждённый аккаунт';
-    badge.dataset.verifiedText = profile.verifiedLabel || 'Подтверждённый аккаунт.';
-    badge.innerHTML = '<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>';
-    viewProfileName.appendChild(badge);
-    bindVerifiedBadge(badge);
+    appendVerifiedBadge(viewProfileName, profile.verifiedLabel || 'Подтверждённый аккаунт.');
   }
+
   viewProfileHandle.textContent = profile.handle ? '@' + profile.handle : '';
   viewProfileBio.textContent = profile.bio || '';
 
-  viewProfileTabs.style.display = profile.isSelf ? 'flex' : 'none';
-  viewProfileFooter.style.display = profile.isSelf ? '' : 'none';
+  viewProfileTabs.style.display = kind === 'self' ? 'flex' : 'none';
+  viewProfileFooter.style.display = kind === 'self' ? '' : 'none';
+  viewChannelBlock.style.display = kind === 'channel' ? 'flex' : 'none';
+  viewMessageBlock.style.display = kind === 'user' ? 'flex' : 'none';
+
+  if(kind === 'channel') loadChannelSubscription(profile.handle);
+  if(kind === 'user') currentViewedHandle = profile.handle;
 
   viewProfileModalOverlay.classList.add('show');
 }
@@ -716,10 +1119,7 @@ function closeViewProfileModal(){
 }
 
 document.getElementById('profileBtn').addEventListener('click', () => {
-  openViewProfile({ ...currentProfile, isSelf: true, avatarImage: null });
-});
-document.getElementById('conversationHeader').addEventListener('click', () => {
-  openViewProfile(BOT_PROFILE);
+  openViewProfile({ ...currentProfile, kind: 'self', avatarImage: null });
 });
 
 document.getElementById('closeViewProfileModal').addEventListener('click', closeViewProfileModal);
@@ -740,6 +1140,34 @@ viewProfileTabs.querySelectorAll('.view-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     showToast(tab.dataset.tabName + ' — скоро будет доступно');
   });
+});
+
+document.getElementById('startConversationBtn').addEventListener('click', async () => {
+  if(!currentViewedHandle) return;
+  try{
+    const res = await apiFetch('/api/conversations/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ handle: currentViewedHandle })
+    });
+    const peer = await res.json();
+    if(!res.ok){
+      showToast(peer.error || 'Не удалось начать переписку');
+      return;
+    }
+    closeViewProfileModal();
+    await refreshConversations();
+    switchToChat({
+      type: 'user',
+      handle: peer.handle,
+      displayName: peer.displayName,
+      avatar: peer.avatar,
+      verified: peer.verified,
+      verifiedLabel: peer.verifiedLabel
+    });
+  }catch(e){
+    showToast('Сервер недоступен. Попробуйте позже.');
+  }
 });
 
 // ==========================================================
@@ -801,7 +1229,7 @@ document.getElementById('backFromChatsSettings').addEventListener('click', () =>
   settingsMainView.style.display = '';
 });
 
-// ---------- переключатель темы (теперь живёт в "Настройки чатов") ----------
+// ---------- переключатель темы (живёт в "Настройки чатов") ----------
 const ICON_SUN = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>';
 const ICON_MOON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
 
@@ -829,5 +1257,8 @@ themeToggle.addEventListener('click', () => {
 // ==========================================================
 (async function init(){
   await loadProfile();
-  await loadHistory();
+  renderChatList();
+  await refreshConversations();
+  await switchToChat({ type: 'bot' });
+  connectWebSocket();
 })();
