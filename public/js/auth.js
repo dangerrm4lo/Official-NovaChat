@@ -2,16 +2,6 @@
 // auth.js — логика страницы входа / регистрации
 // ==========================================================
 
-// быстрая проверка: сервер вообще отвечает? если нет — уводим на offline.html
-(async function checkServerAvailable(){
-  try{
-    const res = await fetch('/health', { cache: 'no-store' });
-    if(!res.ok) throw new Error('bad status');
-  }catch(e){
-    window.location.href = 'offline.html';
-  }
-})();
-
 const tabs = document.querySelectorAll('.auth-tab');
 const forms = {
   register: document.getElementById('registerForm'),
