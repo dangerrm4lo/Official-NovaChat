@@ -34,15 +34,42 @@ const RESERVED_HANDLES = ['novachat', 'novaai', 'nc_official', 'admin', 'support
 // вынесем в отдельный файл admins.json с ролями.
 const CREATOR_LOGINS = ['admin1', 'dangerrm4lo'];
 
+// ---------- верифицированные друзья/аккаунты ----------
+// Сюда добавляй логин или юзернейм человека, которому нужна синяя галочка,
+// но без статуса "создатель". Просто впиши в кавычках через запятую, например:
+// const VERIFIED_LOGINS = ['friend_login', 'friend_handle'];
+const VERIFIED_LOGINS = [];
+
 function isCreator(user){
   const u = (user.username || '').toLowerCase();
   const h = (user.handle || '').toLowerCase();
   return CREATOR_LOGINS.includes(u) || CREATOR_LOGINS.includes(h);
 }
 
+function isVerifiedFriend(user){
+  const u = (user.username || '').toLowerCase();
+  const h = (user.handle || '').toLowerCase();
+  return VERIFIED_LOGINS.includes(u) || VERIFIED_LOGINS.includes(h);
+}
+
+function verificationInfo(user){
+  if(isCreator(user)){
+    return { verified: true, verifiedLabel: 'Это создатель NovaChat - знакомьтесь!' };
+  }
+  if(isVerifiedFriend(user)){
+    return { verified: true, verifiedLabel: 'Подтверждённый аккаунт NovaChat.' };
+  }
+  return { verified: false, verifiedLabel: null };
+}
+
 // увеличенный лимит — нужен, чтобы прошла base64-картинка аватарки
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// лёгкий эндпоинт для проверки "жив ли сервер" (используется offline.html)
+app.get('/health', (req, res) => {
+  res.json({ ok: true });
+});
 
 // ---------- вспомогательные функции для чтения/записи JSON ----------
 function loadJSON(file, fallback){
@@ -73,14 +100,14 @@ function normalizeUser(user){
 }
 
 function publicProfile(user){
-  const verified = isCreator(user);
+  const v = verificationInfo(user);
   return {
     displayName: user.displayName,
     handle: user.handle,
     bio: user.bio,
     avatar: user.avatar,
-    verified,
-    verifiedLabel: verified ? 'Это создатель NovaChat - знакомьтесь!' : null
+    verified: v.verified,
+    verifiedLabel: v.verifiedLabel
   };
 }
 
@@ -310,7 +337,7 @@ app.get('/api/search', authMiddleware, (req, res) => {
     const matchesHandle = u.handle && u.handle.toLowerCase().includes(q);
     const matchesName = u.displayName && u.displayName.toLowerCase().includes(q);
     if(matchesHandle || matchesName){
-      const verified = isCreator(u);
+      const v = verificationInfo(u);
       results.push({
         type: 'user',
         displayName: u.displayName,
@@ -318,8 +345,8 @@ app.get('/api/search', authMiddleware, (req, res) => {
         bio: u.bio,
         avatar: u.avatar,
         avatarImage: null,
-        verified,
-        verifiedLabel: verified ? 'Это создатель NovaChat - знакомьтесь!' : null
+        verified: v.verified,
+        verifiedLabel: v.verifiedLabel
       });
     }
   });
@@ -442,7 +469,6 @@ app.put('/api/chat/message/:id', authMiddleware, (req, res) => {
   const chats = loadJSON(CHATS_FILE, {});
   const list = chats[req.username] || [];
   const msg = list.find(m => m.id === req.params.id);
-
   if(!msg || msg.sender !== 'user'){
     return res.status(404).json({ error: 'Сообщение не найдено' });
   }
@@ -508,9 +534,10 @@ function getNovaAIReply(message){
 
 // ==========================================================
 // РЕАЛЬНАЯ ПЕРЕПИСКА МЕЖДУ ПОЛЬЗОВАТЕЛЯМИ
-// Адресация — по публичному юзернейму (@handle), а не по логину:
-// логин никому, кроме владельца, не показывается. Значит, чтобы
-// пользователю можно было написать, у него должен быть задан юзернейм.
+// Адресация запуска диалога — по публичному юзернейму (@handle).
+// Но сам диалог и все дальнейшие действия (история/чтение/правка/удаление)
+// адресуются по стабильному conversationId — он не ломается, даже если
+// человек потом сменит или уберёт юзернейм.
 // ==========================================================
 
 function findUserByHandle(handle){
@@ -524,21 +551,48 @@ function conversationKey(userA, userB){
 }
 
 function loadConversations(){
-  return loadJSON(CONVERSATIONS_FILE, {});
+  const data = loadJSON(CONVERSATIONS_FILE, {});
+  let changed = false;
+  Object.keys(data).forEach(key => {
+    // миграция: раньше значением был просто массив сообщений — оборачиваем в { id, messages }
+    if(Array.isArray(data[key])){
+      data[key] = { id: crypto.randomUUID(), messages: data[key] };
+      changed = true;
+    } else if(!data[key].id){
+      data[key].id = crypto.randomUUID();
+      changed = true;
+    }
+  });
+  if(changed) saveConversations(data);
+  return data;
 }
 function saveConversations(data){
   saveJSON(CONVERSATIONS_FILE, data);
 }
 
+function peerUsernameFromKey(key, me){
+  const parts = key.split('__');
+  return parts[0] === me ? parts[1] : parts[0];
+}
+
+// находим диалог по его стабильному id — но только среди диалогов текущего пользователя
+function findConversationById(conversations, id, username){
+  const key = Object.keys(conversations).find(k =>
+    conversations[k].id === id && k.split('__').includes(username)
+  );
+  if(!key) return null;
+  return { key, entry: conversations[key], peerUsername: peerUsernameFromKey(key, username) };
+}
+
 function publicPeer(user){
   const normalized = normalizeUser(user);
-  const verified = isCreator(normalized);
+  const v = verificationInfo(normalized);
   return {
     handle: normalized.handle,
     displayName: normalized.displayName,
     avatar: normalized.avatar,
-    verified,
-    verifiedLabel: verified ? 'Это создатель NovaChat - знакомьтесь!' : null
+    verified: v.verified,
+    verifiedLabel: v.verifiedLabel
   };
 }
 
@@ -552,16 +606,18 @@ app.get('/api/conversations', authMiddleware, (req, res) => {
   Object.keys(conversations).forEach(key => {
     const parts = key.split('__');
     if(!parts.includes(me)) return;
-    const peerUsername = parts[0] === me ? parts[1] : parts[0];
+    const peerUsername = peerUsernameFromKey(key, me);
     const peerUser = users.find(u => u.username === peerUsername);
     if(!peerUser) return;
 
-    const messages = conversations[key];
+    const entry = conversations[key];
+    const messages = entry.messages;
     if(!messages.length) return;
     const last = messages[messages.length - 1];
     const unreadCount = messages.filter(m => m.sender === peerUsername && m.status !== 'read').length;
 
     list.push({
+      id: entry.id,
       ...publicPeer(peerUser),
       lastMessage: last.text,
       lastTs: last.ts,
@@ -589,26 +645,26 @@ app.post('/api/conversations/start', authMiddleware, (req, res) => {
   const key = conversationKey(req.username, targetUser.username);
   const conversations = loadConversations();
   if(!conversations[key]){
-    conversations[key] = [];
+    conversations[key] = { id: crypto.randomUUID(), messages: [] };
     saveConversations(conversations);
   }
 
-  res.json(publicPeer(targetUser));
+  res.json({ id: conversations[key].id, ...publicPeer(targetUser) });
 });
 
-// ---------- история переписки с конкретным человеком ----------
-app.get('/api/conversations/:handle/history', authMiddleware, (req, res) => {
-  const targetUser = findUserByHandle(req.params.handle);
-  if(!targetUser){
-    return res.status(404).json({ error: 'Пользователь не найден' });
-  }
-  const key = conversationKey(req.username, targetUser.username);
+// ---------- история переписки по id диалога ----------
+app.get('/api/conversations/:id/history', authMiddleware, (req, res) => {
   const conversations = loadConversations();
-  const messages = conversations[key] || [];
+  const found = findConversationById(conversations, req.params.id, req.username);
+  if(!found){
+    return res.status(404).json({ error: 'Диалог не найден' });
+  }
+  const users = loadJSON(USERS_FILE, []);
+  const peerUser = users.find(u => u.username === found.peerUsername);
 
   res.json({
-    peer: publicPeer(targetUser),
-    messages: messages.map(m => ({
+    peer: peerUser ? publicPeer(peerUser) : null,
+    messages: found.entry.messages.map(m => ({
       id: m.id,
       sender: m.sender === req.username ? 'me' : 'them',
       text: m.text,
@@ -619,45 +675,40 @@ app.get('/api/conversations/:handle/history', authMiddleware, (req, res) => {
   });
 });
 
-// ---------- отметить входящие сообщения от этого человека как прочитанные ----------
-app.post('/api/conversations/:handle/read', authMiddleware, (req, res) => {
-  const targetUser = findUserByHandle(req.params.handle);
-  if(!targetUser){
-    return res.status(404).json({ error: 'Пользователь не найден' });
-  }
-  const key = conversationKey(req.username, targetUser.username);
+// ---------- отметить входящие сообщения в этом диалоге как прочитанные ----------
+app.post('/api/conversations/:id/read', authMiddleware, (req, res) => {
   const conversations = loadConversations();
-  const messages = conversations[key] || [];
+  const found = findConversationById(conversations, req.params.id, req.username);
+  if(!found){
+    return res.status(404).json({ error: 'Диалог не найден' });
+  }
 
   let changed = false;
-  messages.forEach(m => {
-    if(m.sender === targetUser.username && m.status !== 'read'){
+  found.entry.messages.forEach(m => {
+    if(m.sender === found.peerUsername && m.status !== 'read'){
       m.status = 'read';
       changed = true;
     }
   });
   if(changed){
     saveConversations(conversations);
-    notifyUser(targetUser.username, { type: 'read', peer: req.username });
+    notifyUser(found.peerUsername, { type: 'read', conversationId: found.entry.id });
   }
   res.json({ success: true });
 });
 
-// ---------- редактирование своего сообщения в переписке ----------
-app.put('/api/conversations/:handle/message/:id', authMiddleware, (req, res) => {
+// ---------- редактирование своего сообщения в диалоге ----------
+app.put('/api/conversations/:id/message/:msgId', authMiddleware, (req, res) => {
   const { text } = req.body || {};
   if(!text || !text.trim()){
     return res.status(400).json({ error: 'Сообщение не может быть пустым' });
   }
-  const targetUser = findUserByHandle(req.params.handle);
-  if(!targetUser){
-    return res.status(404).json({ error: 'Пользователь не найден' });
-  }
-  const key = conversationKey(req.username, targetUser.username);
   const conversations = loadConversations();
-  const messages = conversations[key] || [];
-  const msg = messages.find(m => m.id === req.params.id);
-
+  const found = findConversationById(conversations, req.params.id, req.username);
+  if(!found){
+    return res.status(404).json({ error: 'Диалог не найден' });
+  }
+  const msg = found.entry.messages.find(m => m.id === req.params.msgId);
   if(!msg || msg.sender !== req.username){
     return res.status(404).json({ error: 'Сообщение не найдено' });
   }
@@ -665,29 +716,26 @@ app.put('/api/conversations/:handle/message/:id', authMiddleware, (req, res) => 
   msg.edited = true;
   saveConversations(conversations);
 
-  notifyUser(targetUser.username, { type: 'edit', id: msg.id, text: msg.text, peer: req.username });
+  notifyUser(found.peerUsername, { type: 'edit', id: msg.id, text: msg.text, conversationId: found.entry.id });
 
   res.json({ message: { id: msg.id, sender: 'me', text: msg.text, ts: msg.ts, status: msg.status, edited: true } });
 });
 
-// ---------- удаление своего сообщения в переписке ----------
-app.delete('/api/conversations/:handle/message/:id', authMiddleware, (req, res) => {
-  const targetUser = findUserByHandle(req.params.handle);
-  if(!targetUser){
-    return res.status(404).json({ error: 'Пользователь не найден' });
-  }
-  const key = conversationKey(req.username, targetUser.username);
+// ---------- удаление своего сообщения в диалоге ----------
+app.delete('/api/conversations/:id/message/:msgId', authMiddleware, (req, res) => {
   const conversations = loadConversations();
-  const messages = conversations[key] || [];
-  const index = messages.findIndex(m => m.id === req.params.id);
-
-  if(index === -1 || messages[index].sender !== req.username){
+  const found = findConversationById(conversations, req.params.id, req.username);
+  if(!found){
+    return res.status(404).json({ error: 'Диалог не найден' });
+  }
+  const index = found.entry.messages.findIndex(m => m.id === req.params.msgId);
+  if(index === -1 || found.entry.messages[index].sender !== req.username){
     return res.status(404).json({ error: 'Сообщение не найдено' });
   }
-  messages.splice(index, 1);
+  found.entry.messages.splice(index, 1);
   saveConversations(conversations);
 
-  notifyUser(targetUser.username, { type: 'delete', id: req.params.id, peer: req.username });
+  notifyUser(found.peerUsername, { type: 'delete', id: req.params.msgId, conversationId: found.entry.id });
 
   res.json({ success: true });
 });
@@ -724,11 +772,12 @@ function markPendingAsDelivered(username){
 
   Object.keys(conversations).forEach(key => {
     if(!key.split('__').includes(username)) return;
-    conversations[key].forEach(m => {
+    const entry = conversations[key];
+    entry.messages.forEach(m => {
       if(m.sender !== username && m.status === 'sent'){
         m.status = 'delivered';
         changed = true;
-        notifyUser(m.sender, { type: 'status', id: m.id, status: 'delivered' });
+        notifyUser(m.sender, { type: 'status', conversationId: entry.id, id: m.id, status: 'delivered' });
       }
     });
   });
@@ -737,19 +786,16 @@ function markPendingAsDelivered(username){
 }
 
 function handleIncomingMessage(fromUsername, data, ws){
-  const targetUser = findUserByHandle(data.to);
-  if(!targetUser){
-    ws.send(JSON.stringify({ type: 'error', tempId: data.tempId, error: 'Пользователь не найден' }));
+  const conversations = loadConversations();
+  const found = findConversationById(conversations, data.conversationId, fromUsername);
+  if(!found){
+    ws.send(JSON.stringify({ type: 'error', tempId: data.tempId, error: 'Диалог не найден' }));
     return;
   }
   const text = (data.text || '').trim();
   if(!text) return;
 
-  const key = conversationKey(fromUsername, targetUser.username);
-  const conversations = loadConversations();
-  if(!conversations[key]) conversations[key] = [];
-
-  const delivered = onlineClients.has(targetUser.username);
+  const delivered = onlineClients.has(found.peerUsername);
   const msg = {
     id: crypto.randomUUID(),
     sender: fromUsername,
@@ -757,7 +803,7 @@ function handleIncomingMessage(fromUsername, data, ws){
     ts: Date.now(),
     status: delivered ? 'delivered' : 'sent'
   };
-  conversations[key].push(msg);
+  found.entry.messages.push(msg);
   saveConversations(conversations);
 
   // подтверждение отправителю (заменяет временное сообщение на настоящее, с id и статусом)
@@ -770,31 +816,29 @@ function handleIncomingMessage(fromUsername, data, ws){
   const users = loadJSON(USERS_FILE, []);
   const senderUser = users.find(u => u.username === fromUsername);
 
-  notifyUser(targetUser.username, {
+  notifyUser(found.peerUsername, {
     type: 'message',
+    conversationId: found.entry.id,
     message: { id: msg.id, sender: 'them', text: msg.text, ts: msg.ts, status: msg.status },
     senderInfo: senderUser ? publicPeer(senderUser) : null
   });
 }
 
 function handleReadReceipt(username, data){
-  const targetUser = findUserByHandle(data.peer);
-  if(!targetUser) return;
-
-  const key = conversationKey(username, targetUser.username);
   const conversations = loadConversations();
-  const messages = conversations[key] || [];
+  const found = findConversationById(conversations, data.conversationId, username);
+  if(!found) return;
 
   let changed = false;
-  messages.forEach(m => {
-    if(m.sender === targetUser.username && m.status !== 'read'){
+  found.entry.messages.forEach(m => {
+    if(m.sender === found.peerUsername && m.status !== 'read'){
       m.status = 'read';
       changed = true;
     }
   });
   if(changed){
     saveConversations(conversations);
-    notifyUser(targetUser.username, { type: 'read', peer: username });
+    notifyUser(found.peerUsername, { type: 'read', conversationId: found.entry.id });
   }
 }
 
