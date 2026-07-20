@@ -5,101 +5,58 @@
 }
 
 
-body {
+/* ===== ФОН ===== */
 
+body{
     height:100vh;
     overflow:hidden;
-
-    background:#050505;
-
-    color:white;
-
-    font-family:"Inter", Arial, sans-serif;
 
     display:flex;
     justify-content:center;
     align-items:center;
     flex-direction:column;
 
+    background:#ffffff;
+    color:#111827;
+
+    font-family:"Inter",Arial,sans-serif;
 }
 
-
-
-/* ===== ФОН ===== */
-
-
-.background {
-
+.background{
     position:fixed;
+    inset:0;
+    z-index:-2;
 
+    background:
+        radial-gradient(circle at top right, rgba(220,38,38,.05), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(220,38,38,.04), transparent 35%),
+        #ffffff;
+}
+
+.background::before{
+    content:"";
+    position:absolute;
+    inset:0;
+
+    background-image:
+        linear-gradient(rgba(0,0,0,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,.03) 1px, transparent 1px);
+
+    background-size:32px 32px;
+
+    opacity:.6;
+}
+
+.background::after{
+    content:"";
+    position:absolute;
     inset:0;
 
     background:
-
-        radial-gradient(
-            circle at 50% 40%,
-            rgba(180,0,0,.12),
-            transparent 45%
-        ),
-
-        linear-gradient(
-            120deg,
-            #030303,
-            #0b0b0b,
-            #020202
-        );
-
-    z-index:-2;
-
+        radial-gradient(circle at center,
+        transparent 0%,
+        rgba(0,0,0,.03) 100%);
 }
-
-
-
-.background::before {
-
-    content:"";
-
-    position:absolute;
-
-    inset:0;
-
-
-    background-image:
-
-    repeating-linear-gradient(
-        0deg,
-        rgba(255,255,255,.015) 0px,
-        rgba(255,255,255,.015) 1px,
-        transparent 1px,
-        transparent 4px
-    );
-
-
-    opacity:.5;
-
-}
-
-
-
-/* красное свечение по краям */
-
-.background::after {
-
-    content:"";
-
-    position:absolute;
-
-    inset:0;
-
-
-    box-shadow:
-
-    inset 0 0 180px rgba(180,0,0,.25);
-
-
-}
-
-
 
 /* ===== ВЕРХНЯЯ ПАНЕЛЬ ===== */
 
@@ -179,15 +136,14 @@ body {
 .icon svg {
 
 
-    width:190px;
+    width:90px;
 
-    height:190px;
-
-
-    color:#d4d4d4;
+    height:90px;
 
 
-    opacity:.85;
+    color:#6b7280;
+
+    opacity:.95;
 
 
     filter:
@@ -218,7 +174,7 @@ h1 {
 
     letter-spacing:-3px;
 
-
+    color: #111827;
 
 }
 
@@ -230,14 +186,13 @@ p {
     margin-top:18px;
 
 
-    color:#777;
+    color:#6b7280;
 
 
     font-size:17px;
 
 
     line-height:1.8;
-
 
 
 }

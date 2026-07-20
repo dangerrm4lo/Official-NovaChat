@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://novachat.onrender.com/sitemap.xml
