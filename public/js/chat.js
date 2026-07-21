@@ -19,10 +19,10 @@ const TICK_SINGLE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none"
 const TICK_DOUBLE = '<svg viewBox="0 0 24 24" width="18" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L7 17l-5-5"></path><path d="M23 6L12 17l-1-1"></path></svg>';
 
 let currentProfile = { displayName: '', handle: null, bio: '', avatar: null, verified: false, verifiedLabel: null };
-let avatarValue = null; // значение аватарки, редактируемое в модалке (до сохранения)
-let activeChat = { type: 'bot' }; // { type:'bot' } | { type:'user', handle, displayName, avatar, verified, verifiedLabel }
+let avatarValue = null;
+let activeChat = { type: 'bot' };
 let conversationsCache = [];
-let currentViewedHandle = null; // юзернейм последнего открытого чужого профиля (для кнопки "Написать")
+let currentViewedHandle = null;
 
 function showToast(text){
   toastEl.textContent = text;
@@ -52,7 +52,7 @@ async function apiFetch(url, options = {}){
 }
 
 // ==========================================================
-// ЗНАЧОК ВЕРИФИКАЦИИ — всплывающая подсказка (текст зависит от того, чей значок)
+// ЗНАЧОК ВЕРИФИКАЦИИ
 // ==========================================================
 const popoverEl = document.getElementById('verifiedPopover');
 
@@ -83,21 +83,17 @@ document.addEventListener('click', (e) => {
 });
 
 // ==========================================================
-// МОБИЛЬНАЯ РАСКЛАДКА: список на весь экран <-> открытый чат на весь экран
+// МОБИЛЬНАЯ РАСКЛАДКА
 // ==========================================================
-function openChatOnMobile(){
-  appEl.classList.add('mobile-chat-open');
-}
-function backToListOnMobile(){
-  appEl.classList.remove('mobile-chat-open');
-}
+function openChatOnMobile(){ appEl.classList.add('mobile-chat-open'); }
+function backToListOnMobile(){ appEl.classList.remove('mobile-chat-open'); }
 document.getElementById('mobileBackBtn').addEventListener('click', (e) => {
   e.stopPropagation();
   backToListOnMobile();
 });
 
 // ==========================================================
-// ШАПКА ДИАЛОГА — переключается между ботом и реальным собеседником
+// ШАПКА ДИАЛОГА
 // ==========================================================
 function updateConversationHeader(chat){
   const avatarEl = document.getElementById('chatHeaderAvatar');
@@ -191,7 +187,7 @@ function buildBotChatItem(){
 function buildConversationItem(conv){
   const item = document.createElement('div');
   item.className = 'chat-item';
-  item.dataset.chatKey = 'user:' + conv.handle;
+  item.dataset.chatKey = 'user:' + conv.id;
   item.dataset.search = (conv.handle + ' ' + conv.displayName).toLowerCase();
 
   const avatar = document.createElement('div');
@@ -218,7 +214,6 @@ function buildConversationItem(conv){
   timeEl.className = 'chat-item-time';
   timeEl.textContent = formatTime(conv.lastTs);
   top.appendChild(timeEl);
-
   const bottom = document.createElement('div');
   bottom.className = 'chat-item-bottom';
   const preview = document.createElement('span');
@@ -239,6 +234,7 @@ function buildConversationItem(conv){
 
   item.addEventListener('click', () => switchToChat({
     type: 'user',
+    conversationId: conv.id,
     handle: conv.handle,
     displayName: conv.displayName,
     avatar: conv.avatar,
@@ -257,7 +253,7 @@ function renderChatList(){
 }
 
 function updateActiveHighlight(){
-  const key = activeChat.type === 'bot' ? 'bot' : 'user:' + activeChat.handle;
+  const key = activeChat.type === 'bot' ? 'bot' : 'user:' + activeChat.conversationId;
   document.querySelectorAll('#chatList > .chat-item').forEach(el => {
     el.classList.toggle('active', el.dataset.chatKey === key);
   });
@@ -269,7 +265,7 @@ async function refreshConversations(){
     const data = await res.json();
     conversationsCache = data.conversations;
     renderChatList();
-  }catch(e){ /* тихо игнорируем — обновим при следующей возможности */ }
+  }catch(e){ /* тихо игнорируем */ }
 }
 
 // ==========================================================
@@ -285,13 +281,13 @@ async function switchToChat(chat){
   if(chat.type === 'bot'){
     await loadHistory();
   } else {
-    await loadConversationHistory(chat.handle);
-    sendReadReceipt(chat.handle);
+    await loadConversationHistory(chat.conversationId);
+    sendReadReceipt(chat.conversationId);
   }
 }
 
 // ==========================================================
-// СООБЩЕНИЯ — общий рендер (и для бота, и для реальной переписки)
+// СООБЩЕНИЯ — общий рендер
 // ==========================================================
 function renderMessage(m){
   const row = document.createElement('div');
@@ -377,7 +373,7 @@ function hideTyping(){
 }
 
 // ==========================================================
-// ЧАТ С БОТОМ (как и раньше — обычные HTTP-запросы)
+// ЧАТ С БОТОМ
 // ==========================================================
 async function loadHistory(){
   try{
@@ -426,11 +422,11 @@ async function sendMessageToBot(text){
 }
 
 // ==========================================================
-// РЕАЛЬНАЯ ПЕРЕПИСКА С ЧЕЛОВЕКОМ
+// РЕАЛЬНАЯ ПЕРЕПИСКА С ЧЕЛОВЕКОМ (адресация — по conversationId)
 // ==========================================================
-async function loadConversationHistory(handle){
+async function loadConversationHistory(id){
   try{
-    const res = await apiFetch('/api/conversations/' + encodeURIComponent(handle) + '/history');
+    const res = await apiFetch('/api/conversations/' + encodeURIComponent(id) + '/history');
     const data = await res.json();
     data.messages.forEach(m => renderMessage({
       id: m.id, who: m.sender === 'me' ? 'me' : 'other', text: m.text, ts: m.ts, status: m.status, edited: m.edited
@@ -440,22 +436,22 @@ async function loadConversationHistory(handle){
   }
 }
 
-function sendMessageToUser(handle, text){
+function sendMessageToUser(conversationId, text){
   const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
   renderMessage({ id: tempId, who: 'me', text, ts: Date.now(), status: 'sent' });
 
   if(ws && ws.readyState === WebSocket.OPEN){
-    ws.send(JSON.stringify({ type: 'message', to: handle, text, tempId }));
+    ws.send(JSON.stringify({ type: 'message', conversationId, text, tempId }));
   } else {
     showToast('Нет соединения с сервером. Переподключаемся…');
   }
 }
 
-function sendReadReceipt(handle){
+function sendReadReceipt(conversationId){
   if(ws && ws.readyState === WebSocket.OPEN){
-    ws.send(JSON.stringify({ type: 'read', peer: handle }));
+    ws.send(JSON.stringify({ type: 'read', conversationId }));
   }
-  apiFetch('/api/conversations/' + encodeURIComponent(handle) + '/read', { method: 'POST' }).catch(() => {});
+  apiFetch('/api/conversations/' + encodeURIComponent(conversationId) + '/read', { method: 'POST' }).catch(() => {});
 }
 
 // ==========================================================
@@ -465,11 +461,10 @@ function sendMessage(){
   const text = messageInput.value.trim();
   if(!text) return;
   messageInput.value = '';
-
   if(activeChat.type === 'bot'){
     sendMessageToBot(text);
   } else {
-    sendMessageToUser(activeChat.handle, text);
+    sendMessageToUser(activeChat.conversationId, text);
   }
 }
 
@@ -498,7 +493,7 @@ document.addEventListener('click', () => msgContextMenu.classList.remove('show')
 function messageEndpoint(id){
   return activeChat.type === 'bot'
     ? '/api/chat/message/' + encodeURIComponent(id)
-    : '/api/conversations/' + encodeURIComponent(activeChat.handle) + '/message/' + encodeURIComponent(id);
+    : '/api/conversations/' + encodeURIComponent(activeChat.conversationId) + '/message/' + encodeURIComponent(id);
 }
 
 msgContextMenu.querySelector('[data-action="edit"]').addEventListener('click', () => {
@@ -564,7 +559,7 @@ async function deleteMessage(row){
   const id = row.dataset.msgId;
   try{
     await apiFetch(messageEndpoint(id), { method: 'DELETE' });
-  }catch(err){ /* даже если запрос не прошёл — анимация всё равно уберёт сообщение визуально */ }
+  }catch(err){ /* анимация всё равно уберёт сообщение визуально */ }
   shatterRow(row);
 }
 
@@ -630,7 +625,7 @@ function shatterRow(row){
 }
 
 // ==========================================================
-// WEBSOCKET — доставка и статусы в реальном времени
+// WEBSOCKET
 // ==========================================================
 let ws = null;
 let wsReconnectTimer = null;
@@ -639,11 +634,11 @@ function connectWebSocket(){
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`);
 
-  `ws`.onopen = () => {
+  ws.onopen = () => {
     clearTimeout(wsReconnectTimer);
   };
 
-  `ws`.onmessage = (event) => {
+  ws.onmessage = (event) => {
     let data;
     try{ data = JSON.parse(event.data); }catch(e){ return; }
 
@@ -656,10 +651,9 @@ function connectWebSocket(){
       refreshConversations();
 
     } else if(data.type === 'message'){
-      const fromHandle = data.senderInfo ? data.senderInfo.handle : null;
-      if(activeChat.type === 'user' && fromHandle && activeChat.handle === fromHandle){
+      if(activeChat.type === 'user' && activeChat.conversationId === data.conversationId){
         renderMessage({ id: data.message.id, who: 'other', text: data.message.text, ts: data.message.ts });
-        sendReadReceipt(fromHandle);
+        sendReadReceipt(data.conversationId);
       } else {
         showToast((data.senderInfo ? data.senderInfo.displayName : 'Кто-то') + ': новое сообщение');
       }
@@ -670,12 +664,12 @@ function connectWebSocket(){
       if(row) updateTicks(row, data.status);
 
     } else if(data.type === 'read'){
-      if(activeChat.type === 'user' && activeChat.handle === data.peer){
+      if(activeChat.type === 'user' && activeChat.conversationId === data.conversationId){
         messagesEl.querySelectorAll('.msg-row.me').forEach(row => updateTicks(row, 'read'));
       }
 
     } else if(data.type === 'edit'){
-      if(activeChat.type === 'user' && activeChat.handle === data.peer){
+      if(activeChat.type === 'user' && activeChat.conversationId === data.conversationId){
         const row = messagesEl.querySelector([`data-msg-id="${CSS.escape(data.id)}"`]);
         if(row){
           const bubble = row.querySelector('.bubble');
@@ -683,8 +677,9 @@ function connectWebSocket(){
         }
       }
       refreshConversations();
-      } else if(data.type === 'delete'){
-      if(activeChat.type === 'user' && activeChat.handle === data.peer){
+
+    } else if(data.type === 'delete'){
+      if(activeChat.type === 'user' && activeChat.conversationId === data.conversationId){
         const row = messagesEl.querySelector([`data-msg-id="${CSS.escape(data.id)}"`]);
         if(row) shatterRow(row);
       }
@@ -699,7 +694,7 @@ function connectWebSocket(){
 }
 
 // ==========================================================
-// ПОИСК: локальные чаты + реальный бэкенд-поиск (пользователи/бот/канал)
+// ПОИСК
 // ==========================================================
 const chatSearchInput = document.getElementById('chatSearch');
 const chatListEmpty = document.getElementById('chatListEmpty');
@@ -932,7 +927,6 @@ document.getElementById('handleInput').addEventListener('input', (e) => {
   const statusEl = document.getElementById('handleStatus');
   const spinnerEl = document.getElementById('handleSpinner');
   clearTimeout(handleDebounceTimer);
-
   if(!val){
     statusEl.textContent = '';
     statusEl.className = 'handle-status';
@@ -1013,7 +1007,7 @@ document.getElementById('saveProfileBtn').addEventListener('click', async () => 
 });
 
 // ==========================================================
-// ПРОСМОТР ПРОФИЛЯ (свой / бот / канал / другой пользователь)
+// ПРОСМОТР ПРОФИЛЯ
 // ==========================================================
 const BOT_PROFILE = {
   kind: 'bot',
@@ -1108,7 +1102,7 @@ function openViewProfile(profile){
   viewProfileTabs.style.display = kind === 'self' ? 'flex' : 'none';
   viewProfileFooter.style.display = kind === 'self' ? '' : 'none';
   viewChannelBlock.style.display = kind === 'channel' ? 'flex' : 'none';
-  viewMessageBlock.style.display = kind === 'user' ? 'flex' : 'none';
+  viewMessageBlock.style.display = (kind === 'user' && profile.handle) ? 'flex' : 'none';
 
   if(kind === 'channel') loadChannelSubscription(profile.handle);
   if(kind === 'user') currentViewedHandle = profile.handle;
@@ -1160,6 +1154,7 @@ document.getElementById('startConversationBtn').addEventListener('click', async 
     await refreshConversations();
     switchToChat({
       type: 'user',
+      conversationId: peer.id,
       handle: peer.handle,
       displayName: peer.displayName,
       avatar: peer.avatar,
@@ -1230,7 +1225,7 @@ document.getElementById('backFromChatsSettings').addEventListener('click', () =>
   settingsMainView.style.display = '';
 });
 
-// ---------- переключатель темы (живёт в "Настройки чатов") ----------
+// ---------- переключатель темы ----------
 const ICON_SUN = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>';
 const ICON_MOON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
 

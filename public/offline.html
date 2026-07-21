@@ -1,161 +1,30 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>NovaChat • Ошибка подключения</title>
-
-
-    <!-- Шрифт -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-
-    <!-- Стиль -->
-    <link rel="stylesheet" href="css/offline.css">
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovaChat — сайт недоступен</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="stylesheet" href="css/offline.css">
 </head>
-
-
 <body>
 
-
-    <!-- Фоновый слой -->
-
-    <div class="background"></div>
-
-
-
-    <!-- Верхнее предупреждение -->
-
-
-    <div class="top-bar">
-
-        <span>⚠</span>
-
-        Ошибка подключения к сайту! Попробуйте позже или перезапустите страницу.
-
-    </div>
-
-
-
-
-    <!-- Основной контент -->
-
-
-    <main class="error-container">
-
-
-        <!-- Иконка отключённого интернета -->
-
-
-        <div class="icon">
-
-
-            <svg xmlns="http://www.w3.org/2000/svg"
-
-                viewBox="0 0 24 24"
-
-                fill="none"
-
-                stroke="currentColor"
-
-                stroke-width="1.5"
-
-                stroke-linecap="round"
-
-                stroke-linejoin="round">
-
-
-                <circle cx="12" cy="12" r="9"></circle>
-
-
-                <path d="M3 12h18"></path>
-
-
-                <path d="M12 3a15 15 0 0 1 0 18"></path>
-
-
-                <path d="M12 3a15 15 0 0 0 0 18"></path>
-
-
-                <line x1="4" y1="4" x2="20" y2="20"></line>
-
-
-            </svg>
-
-
-        </div>
-
-
-
-
-
-        <h1>
-            Ошибка.
-        </h1>
-
-
-
-        <p>
-
-            Не удалось подключиться к NovaChat.<br>
-
-            Сервер временно недоступен или отсутствует<br>
-
-            подключение к интернету.
-
-        </p>
-
-
-
-    </main>
-
-
-
-
-
-    <!-- Индикатор проверки подключения -->
-
-
-    <div class="loading">
-
-
-        <span></span>
-
-        <span></span>
-
-        <span></span>
-
-
-    </div>
-
-
-
-
-
-    <!-- Нижняя подпись -->
-
-
-    <div class="footer">
-
-        NOVACHAT SYSTEM • OFFLINE MODE
-
-    </div>
-
-
-
-
-    <script src="offline.js"></script>
-
-
+  <div class="offline-bar">Ошибка подключения к сайту! Попробуйте позже или перезапустите страницу!</div>
+
+  <div class="offline-center">
+    <svg class="offline-globe" viewBox="0 0 24 24" width="96" height="96" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <path d="M2 12h20"></path>
+      <path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"></path>
+      <line x1="3" y1="3" x2="21" y2="21" stroke-width="1.8"></line>
+    </svg>
+    <div class="offline-text">Ошибка.</div>
+  </div>
+
+  <div class="offline-loader">
+    <span></span><span></span><span></span>
+  </div>
+
+<script src="js/offline.js"></script>
 </body>
-
-
 </html>

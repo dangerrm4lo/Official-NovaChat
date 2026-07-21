@@ -1,392 +1,69 @@
-* {
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-}
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500&display=swap');
 
-
-/* ===== ФОН ===== */
+*{ box-sizing: border-box; }
+html, body{ height: 100%; margin: 0; padding: 0; }
 
 body{
-    height:100vh;
-    overflow:hidden;
-
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    flex-direction:column;
-
-    background:#ffffff;
-    color:#111827;
-
-    font-family:"Inter",Arial,sans-serif;
+  font-family: 'Inter', sans-serif;
+  background: #0B0B17;
+  color: #EDEDF5;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-.background{
-    position:fixed;
-    inset:0;
-    z-index:-2;
-
-    background:
-        radial-gradient(circle at top right, rgba(220,38,38,.05), transparent 30%),
-        radial-gradient(circle at bottom left, rgba(220,38,38,.04), transparent 35%),
-        #ffffff;
+.offline-bar{
+  background: #DC2626;
+  color: #fff;
+  text-align: center;
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.4;
+  padding: 12px 16px;
+  border-radius: 0;
+  flex-shrink: 0;
 }
 
-.background::before{
-    content:"";
-    position:absolute;
-    inset:0;
-
-    background-image:
-        linear-gradient(rgba(0,0,0,.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,0,0,.03) 1px, transparent 1px);
-
-    background-size:32px 32px;
-
-    opacity:.6;
+.offline-center{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 20px;
 }
 
-.background::after{
-    content:"";
-    position:absolute;
-    inset:0;
-
-    background:
-        radial-gradient(circle at center,
-        transparent 0%,
-        rgba(0,0,0,.03) 100%);
+.offline-globe{
+  color: #EDEDF5;
+  opacity: 0.85;
 }
 
-/* ===== ВЕРХНЯЯ ПАНЕЛЬ ===== */
-
-
-.top-bar {
-
-
-    position:fixed;
-
-    top:0;
-
-    left:0;
-
-
-    width:100%;
-
-
-    padding:22px;
-
-
-    background:#b91c1c;
-
-
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-
-
-    gap:12px;
-
-
-    font-size:17px;
-
-    font-weight:600;
-
-
-    letter-spacing:.2px;
-
-
-    box-shadow:
-
-    0 15px 50px rgba(220,0,0,.35);
-
-
-    animation:warning .8s ease;
-
-
-
+.offline-text{
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #EDEDF5;
 }
 
-
-
-/* ===== ОСНОВНОЙ БЛОК ===== */
-
-
-.error-container {
-
-
-    text-align:center;
-
-
-    animation:
-
-    appear 1s ease;
-
-
-
+.offline-loader{
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding-bottom: 44px;
+  flex-shrink: 0;
 }
-
-
-
-/* ===== ГЛОБУС ===== */
-
-
-.icon svg {
-
-
-    width:90px;
-
-    height:90px;
-
-
-    color:#6b7280;
-
-    opacity:.95;
-
-
-    filter:
-
-    drop-shadow(
-        0 0 20px rgba(255,255,255,.15)
-    );
-
-
+.offline-loader span{
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4F46E5, #9333EA, #EC4899);
+  animation: offlineBounce 1.2s infinite ease-in-out;
 }
-
-
-
-/* ===== ТЕКСТ ===== */
-
-
-h1 {
-
-
-    margin-top:35px;
-
-
-    font-size:64px;
-
-
-    font-weight:700;
-
-
-    letter-spacing:-3px;
-
-    color: #111827;
-
-}
-
-
-
-p {
-
-
-    margin-top:18px;
-
-
-    color:#6b7280;
-
-
-    font-size:17px;
-
-
-    line-height:1.8;
-
-
-}
-
-
-
-/* ===== ЗАГРУЗКА ===== */
-
-
-.loading {
-
-
-    position:fixed;
-
-
-    bottom:70px;
-
-
-    display:flex;
-
-
-    gap:8px;
-
-
-
-}
-
-
-.loading span {
-
-
-    width:9px;
-
-    height:9px;
-
-
-    background:#ef4444;
-
-
-    border-radius:50%;
-
-
-    animation:
-
-    blink 1.5s infinite;
-
-
-
-}
-
-
-.loading span:nth-child(2){
-
-    animation-delay:.3s;
-
-}
-
-
-.loading span:nth-child(3){
-
-    animation-delay:.6s;
-
-}
-
-
-
-/* ===== FOOTER ===== */
-
-
-.footer {
-
-
-    position:fixed;
-
-
-    bottom:20px;
-
-
-    color:#444;
-
-
-    font-size:12px;
-
-
-    letter-spacing:2px;
-
-
-}
-
-
-
-/* ===== АНИМАЦИИ ===== */
-
-
-@keyframes appear {
-
-
-    from {
-
-        opacity:0;
-
-        transform:
-        translateY(20px);
-
-    }
-
-
-    to {
-
-        opacity:1;
-
-        transform:
-        translateY(0);
-
-    }
-
-
-}
-
-
-
-@keyframes warning {
-
-
-    from {
-
-        transform:
-        translateY(-100%);
-
-    }
-
-
-    to {
-
-        transform:
-        translateY(0);
-
-    }
-
-
-}
-
-
-
-@keyframes blink {
-
-
-    0%,100% {
-
-        opacity:.2;
-
-    }
-
-
-    50% {
-
-        opacity:1;
-
-    }
-
-
-}
-
-
-
-
-@media(max-width:600px){
-
-
-    .top-bar {
-
-        font-size:14px;
-
-        padding:18px;
-
-        text-align:center;
-
-    }
-
-
-    .icon svg {
-
-        width:140px;
-
-        height:140px;
-
-    }
-
-
-    h1 {
-
-        font-size:45px;
-
-    }
-
-
+.offline-loader span:nth-child(2){ animation-delay: .15s; }
+.offline-loader span:nth-child(3){ animation-delay: .3s; }
+
+@keyframes offlineBounce{
+  0%, 60%, 100%{ transform: translateY(0); opacity: .5; }
+  30%{ transform: translateY(-10px); opacity: 1; }
 }

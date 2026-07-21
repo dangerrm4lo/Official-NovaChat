@@ -1,15 +1,17 @@
-// Проверяем каждые 5 секунд, появился ли сайт снова.
-setInterval(async () => {
-    try {
-        const response = await fetch("/", {
-            method: "HEAD",
-            cache: "no-store"
-        });
+// ==========================================================
+// offline.js — периодически проверяем, не заработал ли сервер снова
+// ==========================================================
 
-        if (response.ok) {
-            location.reload();
-        }
-    } catch (e) {
-        // Сайт всё ещё недоступен.
+async function checkServerOnline(){
+  try{
+    const res = await fetch('/health', { cache: 'no-store' });
+    if(res.ok){
+      window.location.href = 'index.html';
     }
-}, 5000);
+  }catch(e){
+    // сервер всё ещё недоступен — просто попробуем ещё раз позже
+  }
+}
+
+setTimeout(checkServerOnline, 2000);
+setInterval(checkServerOnline, 5000);

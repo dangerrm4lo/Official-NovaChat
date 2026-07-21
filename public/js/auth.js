@@ -2,6 +2,16 @@
 // auth.js — логика страницы входа / регистрации
 // ==========================================================
 
+// быстрая проверка: сервер вообще отвечает? если нет — уводим на offline.html
+(async function checkServerAvailable(){
+  try{
+    const res = await fetch('/health', { cache: 'no-store' });
+    if(!res.ok) throw new Error('bad status');
+  }catch(e){
+    window.location.href = 'offline.html';
+  }
+})();
+
 const tabs = document.querySelectorAll('.auth-tab');
 const forms = {
   register: document.getElementById('registerForm'),
@@ -20,7 +30,6 @@ function setActiveTab(name){
   } else {
     authHint.innerHTML = 'Ещё нет аккаунта? <button type="button" id="hintSwitch">Зарегистрироваться</button>';
   }
-  // пересоздаём обработчик, т.к. кнопка внутри hint была перерисована
   document.getElementById('hintSwitch').addEventListener('click', () => {
     setActiveTab(name === 'register' ? 'login' : 'register');
   });
@@ -31,7 +40,6 @@ tabs.forEach(tab => {
 });
 hintSwitch.addEventListener('click', () => setActiveTab('login'));
 
-// ---------- регистрация ----------
 document.getElementById('registerForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('regUsername').value.trim();
@@ -57,7 +65,6 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       return;
     }
 
-    // после успешной регистрации — переключаемся на вкладку входа
     setActiveTab('login');
     document.getElementById('loginUsername').value = username;
     document.getElementById('loginPassword').focus();
@@ -67,7 +74,6 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   }
 });
 
-// ---------- вход ----------
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('loginUsername').value.trim();
@@ -97,7 +103,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   }
 });
 
-// ---------- если уже залогинен — сразу перекинуть в чат ----------
 (async function checkExistingSession(){
   const token = localStorage.getItem('novachat_token');
   if(!token) return;
