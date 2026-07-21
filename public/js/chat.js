@@ -643,7 +643,7 @@ function connectWebSocket(){
     try{ data = JSON.parse(event.data); }catch(e){ return; }
 
     if(data.type === 'ack'){
-      const row = messagesEl.querySelector([`data-msg-id="${CSS.escape(data.tempId)}"`]);
+      const row = messagesEl.querySelector(`[data-msg-id="${CSS.escape(data.tempId)}"]`);
       if(row){
         row.dataset.msgId = data.message.id;
         updateTicks(row, data.message.status);
@@ -660,7 +660,7 @@ function connectWebSocket(){
       refreshConversations();
 
     } else if(data.type === 'status'){
-      const row = messagesEl.querySelector([`data-msg-id="${CSS.escape(data.id)}"`]);
+      const row = messagesEl.querySelector(`[data-msg-id="${CSS.escape(data.id)}"]`);
       if(row) updateTicks(row, data.status);
 
     } else if(data.type === 'read'){
@@ -670,7 +670,7 @@ function connectWebSocket(){
 
     } else if(data.type === 'edit'){
       if(activeChat.type === 'user' && activeChat.conversationId === data.conversationId){
-        const row = messagesEl.querySelector([`data-msg-id="${CSS.escape(data.id)}"`]);
+        const row = messagesEl.querySelector(`[data-msg-id="${CSS.escape(data.id)}"]`);
         if(row){
           const bubble = row.querySelector('.bubble');
           if(bubble) bubble.textContent = data.text;
@@ -680,7 +680,7 @@ function connectWebSocket(){
 
     } else if(data.type === 'delete'){
       if(activeChat.type === 'user' && activeChat.conversationId === data.conversationId){
-        const row = messagesEl.querySelector([`data-msg-id="${CSS.escape(data.id)}"`]);
+        const row = messagesEl.querySelector(`[data-msg-id="${CSS.escape(data.id)}"]`);
         if(row) shatterRow(row);
       }
       refreshConversations();
