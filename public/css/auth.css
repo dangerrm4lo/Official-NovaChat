@@ -1,187 +1,470 @@
 /* ==========================================================
-   auth.css — страница входа / регистрации
+   auth.css — NovaChat Login (2026)
    ========================================================== */
 
 .auth-page{
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  padding: 24px;
-  background: var(--bg);
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  position:relative;
+  padding:24px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(91,140,255,.16), transparent 28%),
+    radial-gradient(circle at 85% 75%, rgba(162,89,255,.14), transparent 32%),
+    linear-gradient(180deg,#f8faff 0%,#eef4ff 100%);
 }
 
-/* декоративные размытые пятна nova-градиента на белом фоне — деталь дизайна */
+/* декоративные пятна */
+
 .auth-page::before,
 .auth-page::after{
-  content: "";
-  position: absolute;
-  width: 420px;
-  height: 420px;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.16;
-  z-index: 0;
+  content:"";
+  position:absolute;
+  width:520px;
+  height:520px;
+  border-radius:50%;
+  filter:blur(100px);
+  opacity:.25;
+  pointer-events:none;
 }
+
 .auth-page::before{
-  background: var(--nova-1);
-  top: -140px;
-  left: -120px;
+  background:#5f7cff;
+  top:-180px;
+  left:-160px;
 }
+
 .auth-page::after{
-  background: var(--nova-3);
-  bottom: -160px;
-  right: -120px;
+  background:#9b5cff;
+  right:-180px;
+  bottom:-180px;
 }
+
+/* карточка */
 
 .auth-card{
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 400px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  box-shadow: var(--shadow);
-  padding: 36px 32px 32px;
+
+  position:relative;
+  z-index:2;
+
+  width:100%;
+  max-width:430px;
+
+  padding:42px 36px;
+
+  border-radius:30px;
+
+  background:rgba(255,255,255,.72);
+
+  backdrop-filter:blur(28px);
+  -webkit-backdrop-filter:blur(28px);
+
+  border:1px solid rgba(255,255,255,.7);
+
+  box-shadow:
+      0 25px 80px rgba(38,55,120,.14),
+      inset 0 1px 0 rgba(255,255,255,.85);
+
+  animation:cardAppear .8s cubic-bezier(.18,.9,.2,1);
 }
 
+/* логотип */
+
 .auth-brand{
-  text-align: center;
-  margin-bottom: 6px;
+
+  text-align:center;
+
+  margin-bottom:8px;
 }
 
 .auth-brand img{
-  width: 52px;
-  height: 52px;
-  margin-bottom: 12px;
+
+  width:74px;
+  height:74px;
+
+  margin-bottom:14px;
+
+  filter:
+    drop-shadow(0 0 18px rgba(111,124,255,.35));
+
+  animation:logoFloat 5s ease-in-out infinite;
 }
 
-.auth-brand .brand-name{
-  font-size: 26px;
-  font-weight: 700;
-  background: var(--nova-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  letter-spacing: -0.5px;
+/* NovaChat */
+
+.brand-name{
+
+  font-size:34px;
+  font-weight:800;
+  letter-spacing:-1px;
+
+  background:linear-gradient(
+      90deg,
+      #5d7dff,
+      #8b67ff,
+      #54d5ff
+  );
+
+  -webkit-background-clip:text;
+  background-clip:text;
+
+  color:transparent;
 }
+
+/* описание */
 
 .auth-desc{
-  text-align: center;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--text-muted);
-  margin: 10px 0 28px;
+
+  text-align:center;
+
+  color:var(--text-muted);
+
+  font-size:14px;
+
+  line-height:1.6;
+
+  margin:14px 0 28px;
 }
 
-/* переключатель Вход / Регистрация */
+/* вкладки */
+
 .auth-tabs{
-  display: flex;
-  background: var(--bg-soft);
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 24px;
+
+  display:flex;
+
+  gap:6px;
+
+  padding:5px;
+
+  border-radius:18px;
+
+  background:#edf2ff;
+
+  margin-bottom:26px;
 }
 
 .auth-tab{
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: 10px 0;
-  border-radius: 9px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
-  transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+
+  flex:1;
+
+  border:none;
+
+  background:transparent;
+
+  border-radius:14px;
+
+  padding:12px;
+
+  font-size:14px;
+
+  font-weight:700;
+
+  color:#687387;
+
+  cursor:pointer;
+
+  transition:.25s;
 }
 
 .auth-tab.active{
-  background: #fff;
-  color: var(--text);
-  box-shadow: 0 2px 10px rgba(31,20,70,0.08);
+
+  background:white;
+
+  color:#111827;
+
+  box-shadow:
+      0 8px 20px rgba(0,0,0,.08);
 }
 
+/* формы */
+
 .auth-form{
-  display: none;
-  flex-direction: column;
-  gap: 16px;
+
+  display:none;
+
+  flex-direction:column;
+
+  gap:16px;
+
+  animation:fadeForm .35s ease;
 }
 
 .auth-form.active{
-  display: flex;
+
+  display:flex;
 }
 
+/* поля */
+
 .field{
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+
+  display:flex;
+
+  flex-direction:column;
+
+  gap:8px;
 }
 
 .field label{
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-muted);
+
+  font-size:12px;
+
+  font-weight:600;
+
+  color:var(--text-muted);
 }
 
 .field input{
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-size: 14.5px;
-  color: var(--text);
-  background: var(--bg-soft);
-  transition: border-color .2s ease, box-shadow .2s ease;
+
+  height:56px;
+
+  border-radius:16px;
+
+  border:1px solid rgba(120,140,255,.18);
+
+  background:rgba(255,255,255,.82);
+
+  padding:0 18px;
+
+  font-size:15px;
+
+  transition:.25s;
+}
+
+.field input::placeholder{
+
+  color:#98a3b6;
 }
 
 .field input:focus{
-  outline: none;
-  border-color: var(--nova-2);
-  box-shadow: 0 0 0 3px rgba(147,51,234,0.12);
+
+  outline:none;
+
+  transform:translateY(-1px);
+
+  border-color:#6f7cff;
+
+  box-shadow:
+      0 0 0 5px rgba(111,124,255,.12),
+      0 12px 30px rgba(111,124,255,.12);
 }
 
+/* ошибки */
+
+.auth-error{
+
+  min-height:18px;
+
+  text-align:center;
+
+  color:#dc2626;
+
+  font-size:13px;
+}
+
+/* кнопка */
+
 .auth-submit{
-  margin-top: 6px;
-  border: none;
-  border-radius: 10px;
-  padding: 13px 0;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #fff;
-  background: var(--nova-gradient);
-  background-size: 160% 160%;
-  transition: transform .15s ease, background-position .4s ease;
+
+  margin-top:6px;
+
+  height:56px;
+
+  border:none;
+
+  border-radius:16px;
+
+  font-size:15px;
+
+  font-weight:700;
+
+  color:white;
+
+  cursor:pointer;
+
+  background:linear-gradient(
+      135deg,
+      #5b8cff,
+      #7c6cff,
+      #57d6ff
+  );
+
+  background-size:220%;
+
+  transition:.35s;
 }
 
 .auth-submit:hover{
-  background-position: 100% 0;
-  transform: translateY(-1px);
+
+  transform:translateY(-2px);
+
+  background-position:right;
+
+  box-shadow:
+      0 14px 30px rgba(95,115,255,.30);
 }
 
 .auth-submit:active{
-  transform: translateY(0);
+
+  transform:scale(.98);
 }
 
-.auth-error{
-  font-size: 13px;
-  color: #DC2626;
-  min-height: 18px;
-  text-align: center;
-}
+/* низ */
 
 .auth-hint{
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 18px;
+
+  margin-top:20px;
+
+  text-align:center;
+
+  font-size:13px;
+
+  color:var(--text-muted);
 }
 
 .auth-hint button{
-  border: none;
-  background: none;
-  color: var(--nova-2);
-  font-weight: 600;
-  padding: 0;
+
+  background:none;
+
+  border:none;
+
+  color:#5d7dff;
+
+  font-weight:700;
+
+  cursor:pointer;
+}
+
+/* анимации */
+
+@keyframes cardAppear{
+
+0%{
+
+opacity:0;
+
+transform:
+translateY(35px)
+scale(.94);
+
+}
+
+100%{
+
+opacity:1;
+
+transform:
+translateY(0)
+scale(1);
+
+}
+
+}
+
+@keyframes fadeForm{
+
+from{
+
+opacity:0;
+
+transform:
+translateX(18px);
+
+}
+
+to{
+
+opacity:1;
+
+transform:
+translateX(0);
+
+}
+
+}
+
+@keyframes logoFloat{
+
+0%,100%{
+
+transform:translateY(0);
+
+}
+
+50%{
+
+transform:translateY(-5px);
+
+}
+
+}
+
+/* адаптация */
+
+@media (max-width:500px){
+
+.auth-card{
+
+padding:34px 24px;
+
+border-radius:26px;
+
+}
+
+.brand-name{
+
+font-size:30px;
+
+}
+
+.auth-brand img{
+
+width:66px;
+height:66px;
+
+}
+
+.field input{
+
+height:54px;
+
+}
+
+.auth-submit{
+
+height:54px;
+
+}
+
+/* ==========================================================
+   Правовая информация
+   ========================================================== */
+
+.auth-legal{
+  margin-top:14px;
+  text-align:center;
+  font-size:12px;
+  line-height:1.6;
+  color:#8f98ab;
+  user-select:none;
+}
+
+.auth-legal a{
+  color:#5d7dff;
+  text-decoration:none;
+  font-weight:600;
+  transition:color .2s ease;
+}
+
+.auth-legal a:hover{
+  color:#4268ff;
+  text-decoration:underline;
+}
+
+.auth-legal a:active{
+  opacity:.75;
+}
+
 }
